@@ -76,6 +76,19 @@ export const orderService = {
                 throw new Error('Order not found');
             }
 
+            return { id: orderDoc.id, ...orderDoc.data() } as Order;
+        } catch (error: any) {
+            throw new Error(error.message || 'Failed to fetch order details');
+        }
+    },
+
+    async updateOrderStatus(orderId: string, status: string, note?: string): Promise<void> {
+        try {
+            const orderDoc = await getDoc(doc(db, 'orders', orderId));
+            if (!orderDoc.exists()) {
+                throw new Error('Order not found');
+            }
+
             const orderData = orderDoc.data() as Order;
             const newTimeline = [
                 ...orderData.timeline,

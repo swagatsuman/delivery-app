@@ -40,6 +40,14 @@ export const getCurrentUser = createAsyncThunk(
     }
 );
 
+export const updateRestaurantProfile = createAsyncThunk(
+    'auth/updateRestaurantProfile',
+    async (profileData: any) => {
+        const response = await authService.updateProfile(profileData);
+        return response;
+    }
+);
+
 const authSlice = createSlice({
     name: 'auth',
     initialState,
@@ -108,6 +116,21 @@ const authSlice = createSlice({
             .addCase(getCurrentUser.rejected, (state) => {
                 state.loading = false;
                 state.isAuthenticated = false;
+            })
+            // Update Profile
+            .addCase(updateRestaurantProfile.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(updateRestaurantProfile.fulfilled, (state, action) => {
+                state.loading = false;
+                if (state.user) {
+                    state.user = { ...state.user, ...action.payload };
+                }
+            })
+            .addCase(updateRestaurantProfile.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.error.message || 'Failed to update profile';
             });
     }
 });

@@ -15,13 +15,13 @@ export const dashboardService = {
         try {
             // Fetch all users
             const usersSnapshot = await getDocs(collection(db, 'users'));
-            const users = usersSnapshot.docs.map(doc => doc.data());
+            const users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            // Calculate restaurant stats
-            const restaurants = users.filter(user => user.role === USER_ROLES.RESTAURANT);
-            const totalRestaurants = restaurants.length;
-            const pendingRestaurants = restaurants.filter(r => r.status === USER_STATUS.PENDING).length;
-            const activeRestaurants = restaurants.filter(r => r.status === USER_STATUS.ACTIVE).length;
+            // Calculate restaurant stats from users collection
+            const restaurantUsers = users.filter(user => user.role === USER_ROLES.RESTAURANT);
+            const totalRestaurants = restaurantUsers.length;
+            const pendingRestaurants = restaurantUsers.filter(r => r.status === USER_STATUS.PENDING).length;
+            const activeRestaurants = restaurantUsers.filter(r => r.status === USER_STATUS.ACTIVE).length;
 
             // Calculate customer stats
             const totalCustomers = users.filter(user => user.role === USER_ROLES.CUSTOMER).length;
@@ -31,13 +31,18 @@ export const dashboardService = {
             const totalDeliveryAgents = deliveryAgents.length;
             const pendingDeliveryAgents = deliveryAgents.filter(d => d.status === USER_STATUS.PENDING).length;
 
-            // TODO: Fetch actual order and revenue data
-            // For now, using mock data
-            const totalOrders = 0;
-            const todayOrders = 0;
-            const totalRevenue = 0;
-            const todayRevenue = 0;
+            // Fetch restaurant collection data for business stats
+            const restaurantsSnapshot = await getDocs(collection(db, 'restaurants'));
+            const restaurants = restaurantsSnapshot.docs.map(doc => doc.data());
+
+            // Calculate aggregated business stats
+            const totalRevenue = restaurants.reduce((sum, restaurant) => sum + (restaurant.revenue || 0), 0);
+            const totalOrders = restaurants.reduce((sum, restaurant) => sum + (restaurant.totalOrders || 0), 0);
             const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+            // Today's stats (mock data for now - would need timestamps in orders)
+            const todayOrders = 0;
+            const todayRevenue = 0;
 
             return {
                 totalRestaurants,
@@ -73,18 +78,56 @@ export const dashboardService = {
                 type: 'user_registration'
             }));
 
-            // TODO: Add orders, status changes, etc.
+            // Fetch recent restaurant registrations with business names
+            const restaurantUsersQuery = query(
+                collection(db, 'users'),
+                where('role', '==', USER_ROLES.RESTAURANT),
+                orderBy('createdAt', 'desc'),
+                limit(5)
+            );
 
-            return recentUsers;
+            const restaurantUsersSnapshot = await getDocs(restaurantUsersQuery);
+            const recentRestaurantUsers = restaurantUsersSnapshot.docs.map(doc => doc.data());
+
+            // Get business names from restaurants collection
+            const restaurantActivities = await Promise.all(
+                recentRestaurantUsers.map(async (user) => {
+                    try {
+                        const restaurantSnapshot = await getDocs(
+                            query(collection(db, 'restaurants'), where('ownerId', '==', user.uid))
+                        );
+                        const restaurant = restaurantSnapshot.docs[0]?.data();
+                        return {
+                            ...user,
+                            type: 'restaurant_registration',
+                            businessName: restaurant?.businessName || 'Unknown Business'
+                        };
+                    } catch (error) {
+                        return {
+                            ...user,
+                            type: 'restaurant_registration',
+                            businessName: 'Unknown Business'
+                        };
+                    }
+                })
+            );
+
+            // Combine and sort all activities
+            const allActivities = [...recentUsers, ...restaurantActivities]
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                .slice(0, 10);
+
+            return allActivities;
         } catch (error: any) {
-            throw new Error(error.message || 'Failed to fetch recent activity');
+            console.error('Recent activity error:', error);
+            return [];
         }
     },
 
     async getChartData(timeRange: string) {
         try {
-            // TODO: Implement actual chart data fetching based on timeRange
-            // For now, returning mock data
+            // Fetch orders for chart data (when orders collection is implemented)
+            // For now, returning mock data that can be replaced with real data later
             const mockData = [
                 { name: 'Jan', orders: 400, revenue: 24000 },
                 { name: 'Feb', orders: 300, revenue: 18000 },
@@ -96,7 +139,8 @@ export const dashboardService = {
 
             return mockData;
         } catch (error: any) {
-            throw new Error(error.message || 'Failed to fetch chart data');
+            console.error('Chart data error:', error);
+            return [];
         }
     }
 };

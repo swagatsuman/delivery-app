@@ -6,9 +6,9 @@ import {
     type User as FirebaseUser,
     sendEmailVerification
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
-import type { User } from '../types';
+import type { User, Restaurant } from '../types';
 
 export const authService = {
     async signIn(email: string, password: string) {
@@ -28,7 +28,16 @@ export const authService = {
                 throw new Error('Access denied. Restaurant account required.');
             }
 
-            return { user, userData };
+            // If user is a restaurant, also fetch restaurant details
+            let restaurantDetails = null;
+            if (userData.role === 'restaurant') {
+                const restaurantDoc = await getDoc(doc(db, 'restaurants', user.uid));
+                if (restaurantDoc.exists()) {
+                    restaurantDetails = restaurantDoc.data() as Restaurant;
+                }
+            }
+
+            return {user, userData: {...userData, restaurantDetails}};
         } catch (error: any) {
             throw new Error(error.message || 'Login failed');
         }
@@ -36,11 +45,12 @@ export const authService = {
 
     async signUp(signupData: any) {
         try {
-            const { email, password, ...userData } = signupData;
+            const {email, password, ...userData} = signupData;
 
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
+            // Create user document in users collection (without restaurant details)
             const userDoc: User = {
                 uid: user.uid,
                 email: user.email!,
@@ -50,34 +60,50 @@ export const authService = {
                 status: 'pending',
                 createdAt: new Date(),
                 updatedAt: new Date(),
-                restaurantDetails: {
-                    businessName: userData.businessName,
-                    ownerName: userData.ownerName,
-                    gstin: userData.gstin,
-                    address: userData.address,
-                    cuisineTypes: userData.cuisineTypes || [],
-                    operatingHours: {
-                        open: '09:00',
-                        close: '23:00',
-                        isOpen: false
-                    },
-                    rating: 0,
-                    totalRatings: 0,
-                    deliveryRadius: userData.deliveryRadius || 5,
-                    minimumOrderValue: userData.minimumOrderValue || 100,
-                    deliveryFee: userData.deliveryFee || 30,
-                    estimatedDeliveryTime: userData.estimatedDeliveryTime || 30,
-                    totalOrders: 0,
-                    revenue: 0,
-                    description: userData.description || '',
-                    images: []
-                }
+                restaurantId: user.uid // Link to restaurant collection
             };
 
-            await setDoc(doc(db, 'users', user.uid), userDoc);
+            // Create restaurant document in restaurants collection
+            const restaurantDoc: Restaurant = {
+                id: user.uid,
+                ownerId: user.uid,
+                businessName: userData.businessName,
+                ownerName: userData.ownerName,
+                email: user.email!,
+                phone: userData.phone,
+                gstin: userData.gstin,
+                description: userData.description || '',
+                images: [],
+                address: userData.address,
+                cuisineTypes: userData.cuisineTypes || [],
+                operatingHours: {
+                    open: '09:00',
+                    close: '23:00',
+                    isOpen: false
+                },
+                rating: 0,
+                totalRatings: 0,
+                deliveryRadius: userData.deliveryRadius || 5,
+                minimumOrderValue: userData.minimumOrderValue || 100,
+                deliveryFee: userData.deliveryFee || 30,
+                estimatedDeliveryTime: userData.estimatedDeliveryTime || 30,
+                totalOrders: 0,
+                revenue: 0,
+                isActive: true,
+                featured: false,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            };
+
+            // Save both documents
+            await Promise.all([
+                setDoc(doc(db, 'users', user.uid), userDoc),
+                setDoc(doc(db, 'restaurants', user.uid), restaurantDoc)
+            ]);
+
             await sendEmailVerification(user);
 
-            return { user, userData: userDoc };
+            return {user, userData: {...userDoc, restaurantDetails: restaurantDoc}};
         } catch (error: any) {
             throw new Error(error.message || 'Signup failed');
         }
@@ -101,7 +127,14 @@ export const authService = {
                         if (userDoc.exists()) {
                             const userData = userDoc.data() as User;
                             if (userData.role === 'restaurant') {
-                                resolve({ user, userData });
+                                // Fetch restaurant details
+                                const restaurantDoc = await getDoc(doc(db, 'restaurants', user.uid));
+                                if (restaurantDoc.exists()) {
+                                    const restaurantDetails = restaurantDoc.data() as Restaurant;
+                                    resolve({user, userData: {...userData, restaurantDetails}});
+                                } else {
+                                    resolve({user, userData});
+                                }
                             } else {
                                 resolve(null);
                             }
@@ -126,7 +159,14 @@ export const authService = {
                     if (userDoc.exists()) {
                         const userData = userDoc.data() as User;
                         if (userData.role === 'restaurant') {
-                            callback({ user, userData });
+                            // Fetch restaurant details
+                            const restaurantDoc = await getDoc(doc(db, 'restaurants', user.uid));
+                            if (restaurantDoc.exists()) {
+                                const restaurantDetails = restaurantDoc.data() as Restaurant;
+                                callback({user, userData: {...userData, restaurantDetails}});
+                            } else {
+                                callback({user, userData});
+                            }
                         } else {
                             callback(null);
                         }
@@ -147,16 +187,64 @@ export const authService = {
             const user = auth.currentUser;
             if (!user) throw new Error('User not authenticated');
 
-            await setDoc(doc(db, 'users', user.uid), {
-                restaurantDetails: {
-                    operatingHours: {
-                        isOpen
-                    }
-                },
+            await updateDoc(doc(db, 'restaurants', user.uid), {
+                'operatingHours.isOpen': isOpen,
                 updatedAt: new Date()
-            }, { merge: true });
+            });
         } catch (error: any) {
             throw new Error(error.message || 'Failed to update restaurant status');
+        }
+    },
+
+    async updateProfile(profileData: any) {
+        try {
+            const user = auth.currentUser;
+            if (!user) throw new Error('User not authenticated');
+
+            // Update user document
+            const userUpdateData = {
+                name: profileData.ownerName,
+                phone: profileData.phone,
+                email: profileData.email,
+                updatedAt: new Date()
+            };
+
+            // Update restaurant document
+            const restaurantUpdateData = {
+                businessName: profileData.businessName,
+                ownerName: profileData.ownerName,
+                email: profileData.email,
+                phone: profileData.phone,
+                gstin: profileData.gstin,
+                description: profileData.description,
+                address: profileData.address,
+                cuisineTypes: profileData.cuisineTypes,
+                operatingHours: profileData.operatingHours,
+                deliveryRadius: profileData.deliveryRadius,
+                minimumOrderValue: profileData.minimumOrderValue,
+                deliveryFee: profileData.deliveryFee,
+                estimatedDeliveryTime: profileData.estimatedDeliveryTime,
+                updatedAt: new Date()
+            };
+
+            // Update both collections
+            await Promise.all([
+                updateDoc(doc(db, 'users', user.uid), userUpdateData),
+                updateDoc(doc(db, 'restaurants', user.uid), restaurantUpdateData)
+            ]);
+
+            // Get updated user data
+            const [userDoc, restaurantDoc] = await Promise.all([
+                getDoc(doc(db, 'users', user.uid)),
+                getDoc(doc(db, 'restaurants', user.uid))
+            ]);
+
+            const userData = userDoc.data() as User;
+            const restaurantDetails = restaurantDoc.data() as Restaurant;
+
+            return {...userData, restaurantDetails};
+        } catch (error: any) {
+            throw new Error(error.message || 'Failed to update profile');
         }
     }
 };

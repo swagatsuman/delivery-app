@@ -8,7 +8,7 @@ import { Loading } from './components/ui/Loading';
 const Login = lazy(() => import('./pages/auth/Login'));
 const Dashboard = lazy(() => import('./pages/dashboard/Dashboard'));
 const Restaurants = lazy(() => import('./pages/restaurants/Restaurants'));
-// const RestaurantDetail = lazy(() => import('./pages/restaurants/RestaurantDetail'));
+const RestaurantDetail = lazy(() => import('./pages/restaurants/RestaurantDetail'));
 // const Users = lazy(() => import('./pages/users/Users'));
 // const UserDetail = lazy(() => import('./pages/users/UserDetail'));
 // const NotFound = lazy(() => import('./pages/NotFound'));
@@ -35,11 +35,11 @@ function App() {
                             </ProtectedRoute>
                         } />
 
-                        {/*<Route path="/restaurants/:id" element={
+                        <Route path="/restaurants/:id" element={
                             <ProtectedRoute>
                                 <RestaurantDetail />
                             </ProtectedRoute>
-                        } />*/}
+                        } />
 
                         {/*<Route path="/users" element={
                             <ProtectedRoute>

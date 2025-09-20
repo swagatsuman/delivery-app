@@ -8,13 +8,19 @@ export interface User {
     createdAt: Date;
     updatedAt: Date;
     profileImage?: string;
-    restaurantDetails?: RestaurantDetails;
+    restaurantId?: string; // Link to restaurant collection
 }
 
-export interface RestaurantDetails {
+export interface Restaurant {
+    id: string;
+    ownerId: string; // Link to user collection
     businessName: string;
     ownerName: string;
+    email: string;
+    phone?: string;
     gstin: string;
+    description: string;
+    images: string[];
     address: Address;
     cuisineTypes: string[];
     operatingHours: {
@@ -30,8 +36,37 @@ export interface RestaurantDetails {
     estimatedDeliveryTime: number;
     totalOrders: number;
     revenue: number;
-    description?: string;
-    images?: string[];
+    isActive: boolean;
+    featured: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export interface CustomerDetails {
+    addresses: Address[];
+    preferences: {
+        dietaryRestrictions: string[];
+        cuisinePreferences: string[];
+    };
+    totalOrders: number;
+    totalSpent: number;
+}
+
+export interface DeliveryAgentDetails {
+    vehicleType: 'bike' | 'bicycle' | 'car';
+    vehicleNumber: string;
+    licenseNumber: string;
+    kycDocuments: {
+        aadhar: string;
+        license: string;
+        pan: string;
+    };
+    currentLocation: Coordinates;
+    isAvailable: boolean;
+    rating: number;
+    totalRatings: number;
+    totalDeliveries: number;
+    earnings: number;
 }
 
 export interface Address {
@@ -48,47 +83,6 @@ export interface Address {
 export interface Coordinates {
     lat: number;
     lng: number;
-}
-
-export interface Category {
-    id: string;
-    restaurantId: string;
-    name: string;
-    description: string;
-    image: string;
-    sortOrder: number;
-    isActive: boolean;
-    createdAt: Date;
-    updatedAt: Date;
-}
-
-export interface MenuItem {
-    id: string;
-    restaurantId: string;
-    categoryId: string;
-    name: string;
-    description: string;
-    images: string[];
-    price: number;
-    discountPrice?: number;
-    type: 'veg' | 'non-veg' | 'egg';
-    spiceLevel: 'mild' | 'medium' | 'hot';
-    ingredients: string[];
-    allergens: string[];
-    nutritionInfo: {
-        calories: number;
-        protein: number;
-        carbs: number;
-        fat: number;
-    };
-    preparationTime: number;
-    isAvailable: boolean;
-    isRecommended: boolean;
-    rating: number;
-    totalRatings: number;
-    tags: string[];
-    createdAt: Date;
-    updatedAt: Date;
 }
 
 export interface Order {
@@ -158,6 +152,47 @@ export interface Payment {
     transactionId?: string;
 }
 
+export interface Category {
+    id: string;
+    restaurantId: string;
+    name: string;
+    description: string;
+    image: string;
+    sortOrder: number;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export interface MenuItem {
+    id: string;
+    restaurantId: string;
+    categoryId: string;
+    name: string;
+    description: string;
+    images: string[];
+    price: number;
+    discountPrice?: number;
+    type: 'veg' | 'non-veg' | 'egg';
+    spiceLevel: 'mild' | 'medium' | 'hot';
+    ingredients: string[];
+    allergens: string[];
+    nutritionInfo: {
+        calories: number;
+        protein: number;
+        carbs: number;
+        fat: number;
+    };
+    preparationTime: number;
+    isAvailable: boolean;
+    isRecommended: boolean;
+    rating: number;
+    totalRatings: number;
+    tags: string[];
+    createdAt: Date;
+    updatedAt: Date;
+}
+
 export interface DashboardStats {
     todayOrders: number;
     todayRevenue: number;
@@ -214,4 +249,44 @@ export interface DashboardState {
     chartData: any[];
     loading: boolean;
     error: string | null;
+}
+
+// Admin specific types
+export interface RestaurantFilters {
+    status: 'all' | 'pending' | 'active' | 'inactive' | 'suspended';
+    search: string;
+    cuisine: string;
+    rating: number | null;
+}
+
+export interface UserFilters {
+    role: 'all' | 'restaurant' | 'customer' | 'delivery_agent';
+    status: 'all' | 'pending' | 'active' | 'inactive' | 'suspended';
+    search: string;
+}
+
+export interface RestaurantState {
+    restaurants: User[]; // Users with restaurant role
+    selectedRestaurant: User | null;
+    loading: boolean;
+    error: string | null;
+    filters: RestaurantFilters;
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+    };
+}
+
+export interface UserState {
+    users: User[];
+    selectedUser: User | null;
+    loading: boolean;
+    error: string | null;
+    filters: UserFilters;
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+    };
 }

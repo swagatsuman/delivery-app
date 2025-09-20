@@ -28,19 +28,19 @@ export const fetchRestaurants = createAsyncThunk(
     }
 );
 
-export const updateRestaurantStatus = createAsyncThunk(
-    'restaurants/updateStatus',
-    async ({ uid, status }: { uid: string; status: string }) => {
-        await restaurantService.updateRestaurantStatus(uid, status);
-        return { uid, status };
-    }
-);
-
 export const fetchRestaurantDetails = createAsyncThunk(
     'restaurants/fetchDetails',
     async (id: string) => {
         const response = await restaurantService.getRestaurantDetails(id);
         return response;
+    }
+);
+
+export const updateRestaurantStatus = createAsyncThunk(
+    'restaurants/updateStatus',
+    async ({ uid, status }: { uid: string; status: string }) => {
+        await restaurantService.updateRestaurantStatus(uid, status);
+        return { uid, status };
     }
 );
 
@@ -77,17 +77,10 @@ const restaurantSlice = createSlice({
                 state.loading = false;
                 state.error = action.error.message || 'Failed to fetch restaurants';
             })
-            // Update Restaurant Status
-            .addCase(updateRestaurantStatus.fulfilled, (state, action) => {
-                const { uid, status } = action.payload;
-                const restaurant = state.restaurants.find(r => r.uid === uid);
-                if (restaurant) {
-                    restaurant.status = status as any;
-                }
-            })
             // Fetch Restaurant Details
             .addCase(fetchRestaurantDetails.pending, (state) => {
                 state.loading = true;
+                state.error = null;
             })
             .addCase(fetchRestaurantDetails.fulfilled, (state, action) => {
                 state.loading = false;
@@ -96,6 +89,30 @@ const restaurantSlice = createSlice({
             .addCase(fetchRestaurantDetails.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.error.message || 'Failed to fetch restaurant details';
+            })
+            // Update Restaurant Status
+            .addCase(updateRestaurantStatus.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(updateRestaurantStatus.fulfilled, (state, action) => {
+                state.loading = false;
+                const { uid, status } = action.payload;
+
+                // Update in restaurants list
+                const restaurant = state.restaurants.find(r => r.uid === uid);
+                if (restaurant) {
+                    restaurant.status = status as any;
+                }
+
+                // Update selected restaurant if it's the same one
+                if (state.selectedRestaurant && state.selectedRestaurant.uid === uid) {
+                    state.selectedRestaurant.status = status as any;
+                }
+            })
+            .addCase(updateRestaurantStatus.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.error.message || 'Failed to update restaurant status';
             });
     }
 });

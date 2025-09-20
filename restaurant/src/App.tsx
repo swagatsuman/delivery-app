@@ -1,35 +1,94 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { Suspense, lazy } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Provider } from 'react-redux';
+import { Toaster } from 'react-hot-toast';
+import { store } from './store';
+import { ProtectedRoute } from './components/layout/ProtectedRoute';
+import { Loading } from './components/ui/Loading';
+
+// Lazy load pages
+const Login = lazy(() => import('./pages/auth/Login'));
+const Signup = lazy(() => import('./pages/auth/Signup'));
+const Dashboard = lazy(() => import('./pages/dashboard/Dashboard'));
+const Menu = lazy(() => import('./pages/menu/Menu'));
+const Orders = lazy(() => import('./pages/orders/Orders'));
+const OrderDetail = lazy(() => import('./pages/orders/OrderDetail'));
+const Profile = lazy(() => import('./pages/profile/Profile'));
 
 function App() {
-  const [count, setCount] = useState(0)
+    return (
+        <Provider store={store}>
+            <Router>
+                <div className="min-h-screen bg-background">
+                    <Suspense fallback={<Loading fullScreen />}>
+                        <Routes>
+                            {/* Public Routes */}
+                            <Route path="/login" element={<Login />} />
+                            <Route path="/signup" element={<Signup />} />
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+                            {/* Protected Routes */}
+                            <Route path="/dashboard" element={
+                                <ProtectedRoute>
+                                    <Dashboard />
+                                </ProtectedRoute>
+                            } />
+
+                            <Route path="/menu" element={
+                                <ProtectedRoute>
+                                    <Menu />
+                                </ProtectedRoute>
+                            } />
+
+                            <Route path="/orders" element={
+                                <ProtectedRoute>
+                                    <Orders />
+                                </ProtectedRoute>
+                            } />
+
+                            <Route path="/orders/:id" element={
+                                <ProtectedRoute>
+                                    <OrderDetail />
+                                </ProtectedRoute>
+                            } />
+
+                            <Route path="/profile" element={
+                                <ProtectedRoute>
+                                    <Profile />
+                                </ProtectedRoute>
+                            } />
+
+                            {/* Default redirect */}
+                            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+                            {/* 404 */}
+                            <Route path="*" element={
+                                <div className="min-h-screen flex items-center justify-center">
+                                    <div className="text-center">
+                                        <h1 className="text-4xl font-bold text-secondary-900 mb-4">404</h1>
+                                        <p className="text-secondary-600">Page not found</p>
+                                    </div>
+                                </div>
+                            } />
+                        </Routes>
+                    </Suspense>
+
+                    <Toaster
+                        position="top-right"
+                        toastOptions={{
+                            duration: 3000,
+                            className: 'font-medium',
+                            success: {
+                                className: 'bg-success-50 text-success-700 border border-success-200',
+                            },
+                            error: {
+                                className: 'bg-error-50 text-error-700 border border-error-200',
+                            },
+                        }}
+                    />
+                </div>
+            </Router>
+        </Provider>
+    );
 }
 
-export default App
+export default App;

@@ -4,14 +4,20 @@ import {
     where,
     getDocs,
     orderBy,
-    limit
+    limit,
+    doc,
+    getDoc
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import type { DashboardStats, Order } from '../types';
+import type { DashboardStats, Order, Restaurant } from '../types';
 
 export const dashboardService = {
     async getDashboardStats(restaurantId: string): Promise<DashboardStats> {
         try {
+            // Fetch restaurant details from restaurants collection
+            const restaurantDoc = await getDoc(doc(db, 'restaurants', restaurantId));
+            const restaurant = restaurantDoc.exists() ? restaurantDoc.data() as Restaurant : null;
+
             // Fetch all orders for the restaurant
             const ordersQuery = query(
                 collection(db, 'orders'),
@@ -42,9 +48,9 @@ export const dashboardService = {
             const menuItemsSnapshot = await getDocs(menuItemsQuery);
             const totalMenuItems = menuItemsSnapshot.size;
 
-            // Calculate ratings (mock data for now)
-            const averageRating = 4.2;
-            const totalReviews = 156;
+            // Get restaurant ratings and reviews from restaurant document
+            const averageRating = restaurant?.rating || 0;
+            const totalReviews = restaurant?.totalRatings || 0;
 
             return {
                 todayOrders: todayOrders.length,
