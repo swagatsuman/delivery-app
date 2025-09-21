@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
 import { OrderList } from '../../components/features/orders/OrderList';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { useAuth } from '../../hooks/useAuth';
@@ -11,7 +10,6 @@ import {
     fetchOrders,
     updateOrderStatus,
     setFilters,
-    setRealTimeEnabled
 } from '../../store/slices/orderSlice';
 import type { Order, OrderFilters } from '../../types';
 import { Search, Filter, RefreshCw, Download } from 'lucide-react';
@@ -21,21 +19,23 @@ const Orders: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { orders, loading, error, filters } = useAppSelector(state => state.orders);
+    const { orders, loading, filters } = useAppSelector(state => state.orders);
 
     const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         if (user?.uid) {
-            dispatch(fetchOrders({ restaurantId: user.uid, filters }));
+            dispatch(fetchOrders({ restaurantId: user.uid, filters }))
+                .unwrap()
+                .catch((error) => {
+                    console.error('Failed to fetch orders:', error);
+                    // Only show toast for real errors, not missing collections/indexes
+                    if (!error.message?.includes('index') && !error.message?.includes('collection')) {
+                        toast.error('Failed to load orders');
+                    }
+                });
         }
     }, [dispatch, user, filters]);
-
-    useEffect(() => {
-        if (error) {
-            toast.error(error);
-        }
-    }, [error]);
 
     const handleFiltersChange = (newFilters: Partial<OrderFilters>) => {
         dispatch(setFilters(newFilters));

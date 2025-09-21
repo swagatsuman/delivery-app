@@ -28,9 +28,7 @@ const Menu: React.FC = () => {
     const {
         categories,
         menuItems,
-        selectedCategory,
         loading,
-        error,
         filters
     } = useAppSelector(state => state.menu);
 
@@ -42,21 +40,31 @@ const Menu: React.FC = () => {
 
     useEffect(() => {
         if (user?.uid) {
-            dispatch(fetchCategories(user.uid));
+            dispatch(fetchCategories(user.uid))
+                .unwrap()
+                .catch((error) => {
+                    console.error('Failed to fetch categories:', error);
+                    // Only show toast for real errors, not missing collections/indexes
+                    if (!error.message?.includes('index') && !error.message?.includes('collection')) {
+                        toast.error('Failed to load categories');
+                    }
+                });
         }
     }, [dispatch, user]);
 
     useEffect(() => {
         if (user?.uid && selectedCategoryId) {
-            dispatch(fetchMenuItems({ restaurantId: user.uid, categoryId: selectedCategoryId }));
+            dispatch(fetchMenuItems({ restaurantId: user.uid, categoryId: selectedCategoryId }))
+                .unwrap()
+                .catch((error) => {
+                    console.error('Failed to fetch menu items:', error);
+                    // Only show toast for real errors, not missing collections/indexes
+                    if (!error.message?.includes('index') && !error.message?.includes('collection')) {
+                        toast.error('Failed to load menu items');
+                    }
+                });
         }
     }, [dispatch, user, selectedCategoryId]);
-
-    useEffect(() => {
-        if (error) {
-            toast.error(error);
-        }
-    }, [error]);
 
     const handleCategorySelect = (categoryId: string) => {
         setSelectedCategoryId(categoryId);

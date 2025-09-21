@@ -15,14 +15,37 @@ import type { Category, MenuItem } from '../types';
 export const menuService = {
     async getCategories(restaurantId: string): Promise<Category[]> {
         try {
-            const q = query(
+            // First try with compound index (restaurantId + sortOrder)
+            let q = query(
                 collection(db, 'categories'),
                 where('restaurantId', '==', restaurantId),
                 orderBy('sortOrder', 'asc')
             );
+
+            try {
             const snapshot = await getDocs(q);
             return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+            } catch (indexError: any) {
+                console.warn('Compound index not found for categories, trying simple query:', indexError.message);
+
+                // Fallback to simple query without orderBy
+                q = query(
+                    collection(db, 'categories'),
+                    where('restaurantId', '==', restaurantId)
+                );
+
+                const snapshot = await getDocs(q);
+                const categories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+
+                // Sort client-side
+                return categories.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+            }
         } catch (error: any) {
+            console.error('Error fetching categories:', error);
+            // Return empty array for missing collection instead of throwing
+            if (error.message?.includes('collection') || error.message?.includes('index')) {
+                return [];
+            }
             throw new Error(error.message || 'Failed to fetch categories');
         }
     },
@@ -61,24 +84,68 @@ export const menuService = {
 
     async getMenuItems(restaurantId: string, categoryId?: string): Promise<MenuItem[]> {
         try {
-            let q = query(
+            let q;
+
+            if (categoryId) {
+                // Try compound index query first (restaurantId + categoryId + createdAt)
+                try {
+                    q = query(
                 collection(db, 'menuItems'),
                 where('restaurantId', '==', restaurantId),
+                        where('categoryId', '==', categoryId),
                 orderBy('createdAt', 'desc')
             );
 
-            if (categoryId) {
+                    const snapshot = await getDocs(q);
+                    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MenuItem));
+                } catch (indexError: any) {
+                    console.warn('Compound index not found for menu items with category, trying simple query:', indexError.message);
+
+                    // Fallback to simple query without orderBy
+                    q = query(
+                        collection(db, 'menuItems'),
+                        where('restaurantId', '==', restaurantId),
+                        where('categoryId', '==', categoryId)
+                    );
+                }
+            } else {
+                // Try single field index query first (restaurantId + createdAt)
+                try {
                 q = query(
                     collection(db, 'menuItems'),
                     where('restaurantId', '==', restaurantId),
-                    where('categoryId', '==', categoryId),
                     orderBy('createdAt', 'desc')
                 );
-            }
 
             const snapshot = await getDocs(q);
             return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MenuItem));
+                } catch (indexError: any) {
+                    console.warn('Index not found for menu items, trying simple query:', indexError.message);
+
+                    // Fallback to simple query without orderBy
+                    q = query(
+                        collection(db, 'menuItems'),
+                        where('restaurantId', '==', restaurantId)
+                    );
+                }
+            }
+
+            const snapshot = await getDocs(q);
+            const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MenuItem));
+
+            // Sort client-side when orderBy is not available
+            return items.sort((a, b) => {
+                const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
+                const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
+                return dateB.getTime() - dateA.getTime();
+            });
+
         } catch (error: any) {
+            console.error('Error fetching menu items:', error);
+            // Return empty array for missing collection instead of throwing
+            if (error.message?.includes('collection') || error.message?.includes('index')) {
+                return [];
+            }
             throw new Error(error.message || 'Failed to fetch menu items');
         }
     },

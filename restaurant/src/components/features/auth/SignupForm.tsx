@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Mail, Lock, User, Building, MapPin, Phone } from 'lucide-react';
+import { Mail, Lock, User, MapPin, Phone } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Textarea } from '../../ui/Textarea';
+import { GooglePlacesBusinessInput } from './GooglePlacesBusinessInput';
 import { useAppDispatch, useAppSelector } from '../../../hooks/useAppDispatch';
 import { signupUser, clearError } from '../../../store/slices/authSlice';
 import { validateEmail, validatePhone, validateGSTIN } from '../../../utils/helpers';
@@ -23,9 +24,7 @@ interface SignupFormData {
     pincode: string;
     cuisineTypes: string[];
     description: string;
-    deliveryRadius: number;
-    minimumOrderValue: number;
-    deliveryFee: number;
+    estimatedDeliveryTime: number;
 }
 
 export const SignupForm: React.FC = () => {
@@ -33,19 +32,27 @@ export const SignupForm: React.FC = () => {
     const { loading, error } = useAppSelector(state => state.auth);
     const [step, setStep] = useState(1);
     const [selectedCuisines, setSelectedCuisines] = useState<string[]>([]);
+    const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
 
     const {
         register,
         handleSubmit,
         formState: { errors },
         watch,
-        trigger
+        trigger,
+        setValue,
+        getValues
     } = useForm<SignupFormData>();
 
     const password = watch('password');
 
     const onSubmit = async (data: SignupFormData) => {
         dispatch(clearError());
+
+        if (!coordinates) {
+            alert('Please select a business location using the search field');
+            return;
+        }
 
         const signupData = {
             ...data,
@@ -57,7 +64,7 @@ export const SignupForm: React.FC = () => {
                 city: data.city,
                 state: data.state,
                 pincode: data.pincode,
-                coordinates: { lat: 0, lng: 0 } // TODO: Get from Google Maps
+                coordinates: coordinates
             }
         };
 
@@ -69,6 +76,29 @@ export const SignupForm: React.FC = () => {
         if (isValid) {
             setStep(2);
         }
+    };
+
+    const handlePlaceSelected = (place: {
+        businessName: string;
+        address: {
+            street: string;
+            city: string;
+            state: string;
+            pincode: string;
+            coordinates: { lat: number; lng: number };
+        };
+    }) => {
+        // Auto-fill the form fields
+        setValue('businessName', place.businessName);
+        setValue('street', place.address.street);
+        setValue('city', place.address.city);
+        setValue('state', place.address.state);
+        setValue('pincode', place.address.pincode);
+
+        // Store coordinates
+        setCoordinates(place.address.coordinates);
+
+        console.log('Address auto-filled:', place);
     };
 
     const toggleCuisine = (cuisine: string) => {
@@ -178,13 +208,22 @@ export const SignupForm: React.FC = () => {
                             <p className="text-sm text-secondary-600">Tell us about your restaurant</p>
                         </div>
 
-                        <Input
-                            label="Business Name"
-                            icon={<Building className="h-4 w-4" />}
+                        {/* Google Places Business Search */}
+                        <GooglePlacesBusinessInput
+                            label="Search Your Business"
+                            value={getValues('businessName') || ''}
+                            onChange={(value) => setValue('businessName', value)}
+                            onPlaceSelected={handlePlaceSelected}
+                            error={errors.businessName?.message}
+                            placeholder="Type your business name or address..."
+                        />
+
+                        {/* Manual Business Name Input (hidden, populated by Google Places) */}
+                        <input
+                            type="hidden"
                             {...register('businessName', {
                                 required: 'Business name is required'
                             })}
-                            error={errors.businessName?.message}
                         />
 
                         <Input
@@ -197,12 +236,24 @@ export const SignupForm: React.FC = () => {
                             helpText="15-digit GSTIN number (e.g., 22AAAAA0000A1Z5)"
                         />
 
+                        {/* Address Fields (Auto-filled from Google Places) */}
+                        <div className="space-y-4">
+                            <h4 className="text-sm font-medium text-secondary-900 flex items-center">
+                                <MapPin className="h-4 w-4 mr-2" />
+                                Restaurant Address
+                                {coordinates && (
+                                    <span className="ml-2 text-xs text-success-600">
+                                        ✓ Location verified
+                                    </span>
+                                )}
+                            </h4>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <Input
                                 label="Street Address"
-                                icon={<MapPin className="h-4 w-4" />}
                                 {...register('street', { required: 'Street address is required' })}
                                 error={errors.street?.message}
+                                    helpText="Auto-filled from business search"
                             />
 
                             <Input
@@ -225,6 +276,18 @@ export const SignupForm: React.FC = () => {
                                 })}
                                 error={errors.pincode?.message}
                             />
+                        </div>
+
+                            {coordinates && (
+                                <div className="bg-success-50 border border-success-200 rounded-lg p-3">
+                                    <p className="text-sm text-success-800">
+                                        <strong>Location:</strong> {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}
+                                    </p>
+                                    <p className="text-xs text-success-600 mt-1">
+                                        This location will be used for delivery distance calculations
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         <div>
@@ -256,38 +319,17 @@ export const SignupForm: React.FC = () => {
                             placeholder="Brief description of your restaurant and specialties..."
                         />
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <Input
-                                label="Delivery Radius (km)"
+                            label="Estimated Delivery Time (minutes)"
                                 type="number"
-                                {...register('deliveryRadius', {
-                                    required: 'Delivery radius is required',
-                                    min: { value: 1, message: 'Minimum 1 km' },
-                                    max: { value: 20, message: 'Maximum 20 km' }
+                            {...register('estimatedDeliveryTime', {
+                                required: 'Estimated delivery time is required',
+                                min: { value: 15, message: 'Minimum 15 minutes' },
+                                max: { value: 120, message: 'Maximum 120 minutes' }
                                 })}
-                                error={errors.deliveryRadius?.message}
+                            error={errors.estimatedDeliveryTime?.message}
+                            helpText="Average time to prepare and deliver orders"
                             />
-
-                            <Input
-                                label="Minimum Order (₹)"
-                                type="number"
-                                {...register('minimumOrderValue', {
-                                    required: 'Minimum order value is required',
-                                    min: { value: 50, message: 'Minimum ₹50' }
-                                })}
-                                error={errors.minimumOrderValue?.message}
-                            />
-
-                            <Input
-                                label="Delivery Fee (₹)"
-                                type="number"
-                                {...register('deliveryFee', {
-                                    required: 'Delivery fee is required',
-                                    min: { value: 0, message: 'Cannot be negative' }
-                                })}
-                                error={errors.deliveryFee?.message}
-                            />
-                        </div>
 
                         {error && (
                             <div className="p-3 bg-error-50 border border-error-200 rounded-lg">
@@ -308,10 +350,19 @@ export const SignupForm: React.FC = () => {
                                 type="submit"
                                 className="flex-1"
                                 loading={loading}
+                                disabled={!coordinates}
                             >
                                 Create Restaurant Account
                             </Button>
                         </div>
+
+                        {!coordinates && (
+                            <div className="bg-warning-50 border border-warning-200 rounded-lg p-3">
+                                <p className="text-sm text-warning-800">
+                                    Please search and select your business location to continue
+                                </p>
+                            </div>
+                        )}
                     </>
                 )}
             </form>

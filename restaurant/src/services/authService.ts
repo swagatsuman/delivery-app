@@ -83,9 +83,7 @@ export const authService = {
                 },
                 rating: 0,
                 totalRatings: 0,
-                deliveryRadius: userData.deliveryRadius || 5,
-                minimumOrderValue: userData.minimumOrderValue || 100,
-                deliveryFee: userData.deliveryFee || 30,
+                // Removed delivery fields as requested
                 estimatedDeliveryTime: userData.estimatedDeliveryTime || 30,
                 totalOrders: 0,
                 revenue: 0,
@@ -220,9 +218,6 @@ export const authService = {
                 address: profileData.address,
                 cuisineTypes: profileData.cuisineTypes,
                 operatingHours: profileData.operatingHours,
-                deliveryRadius: profileData.deliveryRadius,
-                minimumOrderValue: profileData.minimumOrderValue,
-                deliveryFee: profileData.deliveryFee,
                 estimatedDeliveryTime: profileData.estimatedDeliveryTime,
                 updatedAt: new Date()
             };
