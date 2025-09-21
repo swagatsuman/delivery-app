@@ -1,12 +1,9 @@
-// OPTION 1: Use Google Maps JavaScript API (Recommended)
-// This is the easiest and most reliable approach
-
 import React, { useRef, useEffect, useState } from 'react';
 import { Search, X } from 'lucide-react';
 
 interface GooglePlacesBusinessInputProps {
     label: string;
-    value: string;
+    value?: string;
     onChange: (value: string) => void;
     onPlaceSelected: (place: {
         businessName: string;
@@ -41,65 +38,82 @@ export const GooglePlacesBusinessInput: React.FC<GooglePlacesBusinessInputProps>
     const autocompleteRef = useRef<any>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
+    const [loadAttempted, setLoadAttempted] = useState(false);
 
+    // Check if Google is already loaded
     useEffect(() => {
-        loadGoogleMapsAPI();
-    }, []);
-
-    const loadGoogleMapsAPI = () => {
-        // Check if already loaded
         if (window.google && window.google.maps && window.google.maps.places) {
             setIsGoogleLoaded(true);
             initializeAutocomplete();
+        }
+    }, []);
+
+    const loadGoogleMapsAPI = () => {
+        if (loadAttempted) return;
+        setLoadAttempted(true);
+
+        const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+        if (!apiKey) {
+            console.warn('Google Places API key not found. Using manual input mode.');
             return;
         }
 
-        // Check if script is already being loaded
+        // Check if script already exists
         if (document.getElementById('google-maps-script')) {
             return;
         }
 
         const script = document.createElement('script');
         script.id = 'google-maps-script';
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_PLACES_API_KEY}&libraries=places&callback=initGooglePlaces`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGooglePlaces`;
         script.async = true;
         script.defer = true;
 
-        // Global callback
         window.initGooglePlaces = () => {
             setIsGoogleLoaded(true);
             initializeAutocomplete();
+        };
+
+        script.onerror = () => {
+            console.error('Failed to load Google Places API');
         };
 
         document.head.appendChild(script);
     };
 
     const initializeAutocomplete = () => {
-        if (!inputRef.current || !window.google) return;
+        if (!inputRef.current || !window.google?.maps?.places) return;
 
-        autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current, {
-            types: ['establishment'],
-            fields: ['name', 'formatted_address', 'address_components', 'geometry', 'place_id'],
-            componentRestrictions: {country: 'IN'}
-        });
+        try {
+            // Clean up existing autocomplete
+            if (autocompleteRef.current) {
+                window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+            }
 
-        autocompleteRef.current.addListener('place_changed', handlePlaceSelect);
+            autocompleteRef.current = new window.google.maps.places.Autocomplete(inputRef.current, {
+                types: ['establishment'],
+                fields: ['name', 'formatted_address', 'address_components', 'geometry', 'place_id'],
+                componentRestrictions: {country: 'IN'}
+            });
+
+            autocompleteRef.current.addListener('place_changed', handlePlaceSelect);
+        } catch (error) {
+            console.error('Error initializing autocomplete:', error);
+        }
     };
 
     const handlePlaceSelect = () => {
-        const place = autocompleteRef.current.getPlace();
+        if (!autocompleteRef.current) return;
 
-        if (!place || !place.geometry || !place.geometry.location) {
-            return;
-        }
+        const place = autocompleteRef.current.getPlace();
+        if (!place || !place.geometry?.location) return;
 
         setIsLoading(true);
 
         try {
             const businessName = place.name || '';
-
-            // Parse address components
             const addressComponents = place.address_components || [];
+
             let street = '';
             let city = '';
             let state = '';
@@ -157,6 +171,12 @@ export const GooglePlacesBusinessInput: React.FC<GooglePlacesBusinessInputProps>
         onChange(e.target.value);
     };
 
+    const handleInputFocus = () => {
+        if (!isGoogleLoaded && !loadAttempted) {
+            loadGoogleMapsAPI();
+        }
+    };
+
     const clearInput = () => {
         onChange('');
         if (inputRef.current) {
@@ -183,13 +203,12 @@ export const GooglePlacesBusinessInput: React.FC<GooglePlacesBusinessInputProps>
                     type="text"
                     value={value}
                     onChange={handleInputChange}
-                    placeholder={isGoogleLoaded ? placeholder : "Loading Google Places..."}
-                    disabled={!isGoogleLoaded}
-                    className={`input-field pl-10 pr-10 ${error ? 'border-error-500 focus:ring-error-500' : ''} ${
-                        !isGoogleLoaded ? 'bg-secondary-50 cursor-not-allowed' : ''
-                    }`}
+                    onFocus={handleInputFocus}
+                    placeholder={placeholder}
+                    className={`input-field pl-10 pr-10 ${error ? 'border-error-500 focus:ring-error-500' : ''}`}
+                    autoComplete="off"
                 />
-                {value && isGoogleLoaded && (
+                {value && (
                     <button
                         type="button"
                         onClick={clearInput}
@@ -200,19 +219,19 @@ export const GooglePlacesBusinessInput: React.FC<GooglePlacesBusinessInputProps>
                 )}
             </div>
 
-            {!isGoogleLoaded && (
-                <p className="text-xs text-secondary-500">
-                    Loading Google Places API...
-                </p>
-            )}
+            <div className="text-xs text-secondary-500">
+                {isGoogleLoaded ? (
+                    "Search and select your business to auto-fill address details"
+                ) : loadAttempted ? (
+                    "Loading Google Places... You can type manually"
+                ) : (
+                    "Click to enable Google Places search or type manually"
+                )}
+            </div>
 
             {error && (
                 <p className="text-sm text-error-600">{error}</p>
             )}
-
-            <p className="text-xs text-secondary-500">
-                Search and select your business to auto-fill address details
-            </p>
         </div>
     );
 };

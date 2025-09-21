@@ -364,34 +364,6 @@ const RestaurantDetail: React.FC = () => {
                             </div>
                         </Card>
 
-                        {/* Delivery Settings */}
-                        {details && (
-                            <Card title="Delivery Settings" padding="md">
-                                <div className="space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-secondary-600">Delivery Radius:</span>
-                                        <span
-                                            className="font-semibold text-secondary-900">{details.deliveryRadius} km</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-secondary-600">Min Order:</span>
-                                        <span
-                                            className="font-semibold text-secondary-900">{formatCurrency(details.minimumOrderValue)}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-secondary-600">Delivery Fee:</span>
-                                        <span
-                                            className="font-semibold text-secondary-900">{formatCurrency(details.deliveryFee)}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-secondary-600">Est. Delivery Time:</span>
-                                        <span
-                                            className="font-semibold text-secondary-900">{details.estimatedDeliveryTime} min</span>
-                                    </div>
-                                </div>
-                            </Card>
-                        )}
-
                         {/* Account Status */}
                         <Card title="Account Status" padding="md">
                             <div className="space-y-3">

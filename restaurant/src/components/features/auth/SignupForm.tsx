@@ -29,7 +29,7 @@ interface SignupFormData {
 
 export const SignupForm: React.FC = () => {
     const dispatch = useAppDispatch();
-    const { loading, error } = useAppSelector(state => state.auth);
+    const {loading, error} = useAppSelector(state => state.auth);
     const [step, setStep] = useState(1);
     const [selectedCuisines, setSelectedCuisines] = useState<string[]>([]);
     const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
@@ -37,7 +37,7 @@ export const SignupForm: React.FC = () => {
     const {
         register,
         handleSubmit,
-        formState: { errors },
+        formState: {errors},
         watch,
         trigger,
         setValue,
@@ -109,6 +109,8 @@ export const SignupForm: React.FC = () => {
         );
     };
 
+    console.log(getValues('businessName'));
+
     return (
         <div className="w-full">
             <div className="text-center mb-8">
@@ -124,7 +126,7 @@ export const SignupForm: React.FC = () => {
                     }`}>
                         1
                     </div>
-                    <div className={`w-12 h-1 ${step >= 2 ? 'bg-primary-500' : 'bg-secondary-200'}`} />
+                    <div className={`w-12 h-1 ${step >= 2 ? 'bg-primary-500' : 'bg-secondary-200'}`}/>
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                         step >= 2 ? 'bg-primary-500 text-white' : 'bg-secondary-200 text-secondary-600'
                     }`}>
@@ -143,10 +145,10 @@ export const SignupForm: React.FC = () => {
 
                         <Input
                             label="Owner Name"
-                            icon={<User className="h-4 w-4" />}
+                            icon={<User className="h-4 w-4"/>}
                             {...register('ownerName', {
                                 required: 'Owner name is required',
-                                minLength: { value: 2, message: 'Name must be at least 2 characters' }
+                                minLength: {value: 2, message: 'Name must be at least 2 characters'}
                             })}
                             error={errors.ownerName?.message}
                         />
@@ -154,7 +156,7 @@ export const SignupForm: React.FC = () => {
                         <Input
                             label="Email Address"
                             type="email"
-                            icon={<Mail className="h-4 w-4" />}
+                            icon={<Mail className="h-4 w-4"/>}
                             {...register('email', {
                                 required: 'Email is required',
                                 validate: (value) => validateEmail(value) || 'Invalid email address'
@@ -165,7 +167,7 @@ export const SignupForm: React.FC = () => {
                         <Input
                             label="Phone Number"
                             type="tel"
-                            icon={<Phone className="h-4 w-4" />}
+                            icon={<Phone className="h-4 w-4"/>}
                             {...register('phone', {
                                 required: 'Phone number is required',
                                 validate: (value) => validatePhone(value) || 'Invalid phone number'
@@ -176,10 +178,10 @@ export const SignupForm: React.FC = () => {
                         <Input
                             label="Password"
                             type="password"
-                            icon={<Lock className="h-4 w-4" />}
+                            icon={<Lock className="h-4 w-4"/>}
                             {...register('password', {
                                 required: 'Password is required',
-                                minLength: { value: 8, message: 'Password must be at least 8 characters' }
+                                minLength: {value: 8, message: 'Password must be at least 8 characters'}
                             })}
                             error={errors.password?.message}
                         />
@@ -187,7 +189,7 @@ export const SignupForm: React.FC = () => {
                         <Input
                             label="Confirm Password"
                             type="password"
-                            icon={<Lock className="h-4 w-4" />}
+                            icon={<Lock className="h-4 w-4"/>}
                             {...register('confirmPassword', {
                                 required: 'Please confirm your password',
                                 validate: (value) => value === password || 'Passwords do not match'
@@ -211,8 +213,10 @@ export const SignupForm: React.FC = () => {
                         {/* Google Places Business Search */}
                         <GooglePlacesBusinessInput
                             label="Search Your Business"
-                            value={getValues('businessName') || ''}
-                            onChange={(value) => setValue('businessName', value)}
+                            // value={getValues('businessName') || ''}
+                            onChange={(value) => {
+                                setValue('businessName', value);
+                            }}
                             onPlaceSelected={handlePlaceSelected}
                             error={errors.businessName?.message}
                             placeholder="Type your business name or address..."
@@ -239,7 +243,7 @@ export const SignupForm: React.FC = () => {
                         {/* Address Fields (Auto-filled from Google Places) */}
                         <div className="space-y-4">
                             <h4 className="text-sm font-medium text-secondary-900 flex items-center">
-                                <MapPin className="h-4 w-4 mr-2" />
+                                <MapPin className="h-4 w-4 mr-2"/>
                                 Restaurant Address
                                 {coordinates && (
                                     <span className="ml-2 text-xs text-success-600">
@@ -248,35 +252,38 @@ export const SignupForm: React.FC = () => {
                                 )}
                             </h4>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <Input
-                                label="Street Address"
-                                {...register('street', { required: 'Street address is required' })}
-                                error={errors.street?.message}
-                                    helpText="Auto-filled from business search"
-                            />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <Input
+                                    label="Street Address"
+                                    {...register('street', {required: 'Street address is required'})}
+                                    error={errors.street?.message}
+                                    disabled
+                                />
 
-                            <Input
-                                label="City"
-                                {...register('city', { required: 'City is required' })}
-                                error={errors.city?.message}
-                            />
+                                <Input
+                                    label="City"
+                                    {...register('city', {required: 'City is required'})}
+                                    error={errors.city?.message}
+                                    disabled
+                                />
 
-                            <Input
-                                label="State"
-                                {...register('state', { required: 'State is required' })}
-                                error={errors.state?.message}
-                            />
+                                <Input
+                                    label="State"
+                                    {...register('state', {required: 'State is required'})}
+                                    error={errors.state?.message}
+                                    disabled
+                                />
 
-                            <Input
-                                label="Pincode"
-                                {...register('pincode', {
-                                    required: 'Pincode is required',
-                                    pattern: { value: /^\d{6}$/, message: 'Invalid pincode' }
-                                })}
-                                error={errors.pincode?.message}
-                            />
-                        </div>
+                                <Input
+                                    label="Pincode"
+                                    {...register('pincode', {
+                                        required: 'Pincode is required',
+                                        pattern: {value: /^\d{6}$/, message: 'Invalid pincode'}
+                                    })}
+                                    error={errors.pincode?.message}
+                                    disabled
+                                />
+                            </div>
 
                             {coordinates && (
                                 <div className="bg-success-50 border border-success-200 rounded-lg p-3">
@@ -318,18 +325,6 @@ export const SignupForm: React.FC = () => {
                             {...register('description')}
                             placeholder="Brief description of your restaurant and specialties..."
                         />
-
-                            <Input
-                            label="Estimated Delivery Time (minutes)"
-                                type="number"
-                            {...register('estimatedDeliveryTime', {
-                                required: 'Estimated delivery time is required',
-                                min: { value: 15, message: 'Minimum 15 minutes' },
-                                max: { value: 120, message: 'Maximum 120 minutes' }
-                                })}
-                            error={errors.estimatedDeliveryTime?.message}
-                            helpText="Average time to prepare and deliver orders"
-                            />
 
                         {error && (
                             <div className="p-3 bg-error-50 border border-error-200 rounded-lg">

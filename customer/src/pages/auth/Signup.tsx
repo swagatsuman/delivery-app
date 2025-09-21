@@ -1,0 +1,134 @@
+import React from 'react';
+import { useForm } from 'react-hook-form';
+import { Link, useNavigate } from 'react-router-dom';
+import { User, Phone, ArrowRight } from 'lucide-react';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
+import { sendOTP } from '../../store/slices/authSlice';
+import { validatePhone } from '../../utils/helpers';
+
+interface SignupFormData {
+    name: string;
+    phone: string;
+}
+
+const Signup: React.FC = () => {
+    const dispatch = useAppDispatch();
+    const navigate = useNavigate();
+    const { loading, error } = useAppSelector(state => state.auth);
+
+    const {
+        register,
+        handleSubmit,
+        formState: { errors }
+    } = useForm<SignupFormData>();
+
+    const onSubmit = async (data: SignupFormData) => {
+        try {
+            await dispatch(sendOTP({
+                phone: data.phone,
+                type: 'signup',
+                userData: { name: data.name }
+            })).unwrap();
+            navigate('/verify-otp', {
+                state: {
+                    phone: data.phone,
+                    type: 'signup',
+                    userData: { name: data.name }
+                }
+            });
+        } catch (error) {
+            // Error handled by Redux
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-primary-50 to-orange-50 flex flex-col">
+            {/* Header */}
+            <div className="pt-12 pb-8 px-6 text-center">
+                <div className="w-20 h-20 bg-primary-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <span className="text-2xl font-bold text-white">F</span>
+                </div>
+                <h1 className="text-3xl font-bold text-secondary-900 mb-2">Join FoodEats</h1>
+                <p className="text-secondary-600">Create your account to start ordering delicious food</p>
+            </div>
+
+            {/* Form */}
+            <div className="flex-1 bg-surface rounded-t-3xl px-6 py-8">
+                <div className="max-w-sm mx-auto">
+                    <h2 className="text-2xl font-bold text-secondary-900 mb-2">Create Account</h2>
+                    <p className="text-secondary-600 mb-8">Enter your details to get started</p>
+
+                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                        <Input
+                            label="Full Name"
+                            type="text"
+                            icon={<User className="h-5 w-5" />}
+                            placeholder="Enter your full name"
+                            {...register('name', {
+                                required: 'Name is required',
+                                minLength: { value: 2, message: 'Name must be at least 2 characters' }
+                            })}
+                            error={errors.name?.message}
+                            className="text-lg"
+                        />
+
+                        <Input
+                            label="Phone Number"
+                            type="tel"
+                            icon={<Phone className="h-5 w-5" />}
+                            placeholder="Enter your phone number"
+                            {...register('phone', {
+                                required: 'Phone number is required',
+                                validate: (value) => validatePhone(value) || 'Please enter a valid phone number'
+                            })}
+                            error={errors.phone?.message}
+                            className="text-lg"
+                        />
+
+                        {error && (
+                            <div className="p-4 bg-error-50 border border-error-200 rounded-lg">
+                                <p className="text-sm text-error-700">{error}</p>
+                            </div>
+                        )}
+
+                        <Button
+                            type="submit"
+                            className="w-full h-12 text-lg"
+                            loading={loading}
+                            disabled={loading}
+                        >
+                            {loading ? 'Sending OTP...' : (
+                                <>
+                                    Create Account
+                                    <ArrowRight className="ml-2 h-5 w-5" />
+                                </>
+                            )}
+                        </Button>
+                    </form>
+
+                    <div className="mt-8 text-center">
+                        <p className="text-secondary-600">
+                            Already have an account?{' '}
+                            <Link to="/login" className="text-primary-600 font-semibold">
+                                Sign In
+                            </Link>
+                        </p>
+                    </div>
+
+                    {/* Terms */}
+                    <div className="mt-8 text-center">
+                        <p className="text-xs text-secondary-500">
+                            By creating an account, you agree to our{' '}
+                            <span className="text-primary-600">Terms of Service</span> and{' '}
+                            <span className="text-primary-600">Privacy Policy</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default Signup;
