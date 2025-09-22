@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Minus, Star } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { useAppDispatch, useAppSelector } from '../../../hooks/useAppDispatch';
-import { addToCart } from '../../../store/slices/cartSlice';
+import { addToCart, updateCartItem, removeFromCart } from '../../../store/slices/cartSlice';
 import type { MenuItem as MenuItemType } from '../../../types';
 
 interface MenuItemProps {
@@ -13,16 +13,18 @@ interface MenuItemProps {
 export const MenuItem: React.FC<MenuItemProps> = ({ item, restaurantId }) => {
     const dispatch = useAppDispatch();
     const cartItems = useAppSelector(state => state.cart.items);
-    const [quantity, setQuantity] = useState(0);
+    const cartRestaurantId = useAppSelector(state => state.cart.restaurantId);
 
     // Find current quantity in cart
     const cartItem = cartItems.find(cartItem => cartItem.menuItem.id === item.id);
     const currentQuantity = cartItem?.quantity || 0;
 
     const handleAddToCart = () => {
-        if (item.customizations && item.customizations.length > 0) {
-            // Open customization modal
-            // For now, add without customizations
+        // Check if adding from different restaurant
+        if (cartRestaurantId && cartRestaurantId !== restaurantId) {
+            if (!confirm('Adding items from a different restaurant will clear your current cart. Continue?')) {
+                return;
+            }
         }
 
         dispatch(addToCart({
@@ -34,10 +36,15 @@ export const MenuItem: React.FC<MenuItemProps> = ({ item, restaurantId }) => {
     };
 
     const handleUpdateQuantity = (newQuantity: number) => {
+        if (!cartItem) return;
+
         if (newQuantity === 0) {
-            // Remove from cart
+            dispatch(removeFromCart(cartItem.id));
         } else {
-            // Update quantity in cart
+            dispatch(updateCartItem({
+                itemId: cartItem.id,
+                quantity: newQuantity
+            }));
         }
     };
 

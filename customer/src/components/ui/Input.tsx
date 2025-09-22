@@ -1,10 +1,12 @@
 import React from 'react';
 
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement | HTMLTextAreaElement> {
     label?: string;
     error?: string;
     icon?: React.ReactNode;
     helpText?: string;
+    multiline?: boolean;
+    rows?: number;
 }
 
 export const Input: React.FC<InputProps> = ({
@@ -12,9 +14,13 @@ export const Input: React.FC<InputProps> = ({
                                                 error,
                                                 icon,
                                                 helpText,
+                                                multiline = false,
+                                                rows = 3,
                                                 className = '',
                                                 ...props
                                             }) => {
+    const Component = multiline ? 'textarea' : 'input';
+
     return (
         <div className="space-y-1">
             {label && (
@@ -23,15 +29,16 @@ export const Input: React.FC<InputProps> = ({
                 </label>
             )}
             <div className="relative">
-                {icon && (
+                {icon && !multiline && (
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <span className="text-secondary-400">{icon}</span>
                     </div>
                 )}
-                <input
+                <Component
                     className={`w-full px-4 py-3 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors bg-surface text-lg ${
                         error ? 'border-error-500 focus:ring-error-500' : ''
-                    } ${icon ? 'pl-12' : ''} ${className}`}
+                    } ${icon && !multiline ? 'pl-12' : ''} ${className}`}
+                    {...(multiline ? { rows } : {})}
                     {...props}
                 />
             </div>

@@ -15,18 +15,18 @@ interface LoginFormData {
 const Login: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
-    const { loading, error } = useAppSelector(state => state.auth);
+    const {loading, error} = useAppSelector(state => state.auth);
 
     const {
         register,
         handleSubmit,
-        formState: { errors }
+        formState: {errors}
     } = useForm<LoginFormData>();
 
     const onSubmit = async (data: LoginFormData) => {
         try {
-            await dispatch(sendOTP({ phone: data.phone, type: 'login' })).unwrap();
-            navigate('/verify-otp', { state: { phone: data.phone, type: 'login' } });
+            await dispatch(sendOTP({phone: data.phone, type: 'login'})).unwrap();
+            navigate('/verify-otp', {state: {phone: data.phone, type: 'login'}});
         } catch (error) {
             // Error handled by Redux
         }
@@ -53,7 +53,7 @@ const Login: React.FC = () => {
                         <Input
                             label="Phone Number"
                             type="tel"
-                            icon={<Phone className="h-5 w-5" />}
+                            icon={<Phone className="h-5 w-5"/>}
                             placeholder="Enter your phone number"
                             {...register('phone', {
                                 required: 'Phone number is required',
@@ -78,7 +78,7 @@ const Login: React.FC = () => {
                             {loading ? 'Sending OTP...' : (
                                 <>
                                     Continue
-                                    <ArrowRight className="ml-2 h-5 w-5" />
+                                    <ArrowRight className="ml-2 h-5 w-5"/>
                                 </>
                             )}
                         </Button>

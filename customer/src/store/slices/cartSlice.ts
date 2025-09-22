@@ -1,10 +1,10 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { CartState, CartItem, MenuItem, Address, CartPricing, SelectedCustomization } from '../../types';
 import { generateId } from '../../utils/helpers';
+import { cartService } from '../../services/cartService';
 
 const initialState: CartState = {
-    items: [],
-    restaurantId: null,
+    ...cartService.loadCart(),
     deliveryAddress: null,
     coupon: null,
     pricing: {
@@ -23,11 +23,12 @@ const calculatePricing = (items: CartItem[], deliveryFee: number = 30): CartPric
     const itemTotal = items.reduce((total, item) => total + item.totalPrice, 0);
     const taxes = Math.round(itemTotal * 0.05); // 5% tax
     const discount = 0; // Apply coupon discounts here
-    const total = itemTotal + deliveryFee + taxes - discount;
+    const actualDeliveryFee = itemTotal >= 299 ? 0 : deliveryFee; // Free delivery above 299
+    const total = itemTotal + actualDeliveryFee + taxes - discount;
 
     return {
         itemTotal,
-        deliveryFee: itemTotal >= 299 ? 0 : deliveryFee, // Free delivery above 299
+        deliveryFee: actualDeliveryFee,
         taxes,
         discount,
         total: Math.max(0, total)
@@ -100,6 +101,9 @@ const cartSlice = createSlice({
 
             // Recalculate pricing
             state.pricing = calculatePricing(state.items);
+
+            // Save to localStorage
+            cartService.saveCart(state.items, state.restaurantId);
         },
 
         updateCartItem: (state, action: PayloadAction<{
@@ -131,6 +135,9 @@ const cartSlice = createSlice({
 
                 // Recalculate pricing
                 state.pricing = calculatePricing(state.items);
+
+                // Save to localStorage
+                cartService.saveCart(state.items, state.restaurantId);
             }
         },
 
@@ -140,6 +147,10 @@ const cartSlice = createSlice({
             // Clear restaurant if no items
             if (state.items.length === 0) {
                 state.restaurantId = null;
+                cartService.clearCart();
+            } else {
+                // Save to localStorage
+                cartService.saveCart(state.items, state.restaurantId);
             }
 
             // Recalculate pricing
@@ -150,7 +161,14 @@ const cartSlice = createSlice({
             state.items = [];
             state.restaurantId = null;
             state.coupon = null;
-            state.pricing = initialState.pricing;
+            state.pricing = {
+                itemTotal: 0,
+                deliveryFee: 0,
+                taxes: 0,
+                discount: 0,
+                total: 0
+            };
+            cartService.clearCart();
         },
 
         setDeliveryAddress: (state, action: PayloadAction<Address>) => {

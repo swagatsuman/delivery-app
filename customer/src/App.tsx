@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { Toaster } from 'react-hot-toast';
@@ -29,6 +29,9 @@ function App() {
         <Provider store={store}>
             <Router>
                 <div className="min-h-screen bg-background">
+                    {/* Hidden reCAPTCHA container for Firebase Auth */}
+                    <div id="recaptcha-container"></div>
+
                     <Suspense fallback={<Loading fullScreen />}>
                         <Routes>
                             {/* Public Routes */}
