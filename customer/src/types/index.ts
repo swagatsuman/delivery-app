@@ -1,10 +1,9 @@
-// User and Auth Types
 export interface User {
     uid: string;
     role: 'customer';
     name: string;
+    email: string;
     phone: string;
-    email?: string;
     status: 'active' | 'inactive';
     createdAt: Date;
     updatedAt: Date;
@@ -16,7 +15,25 @@ export interface AuthState {
     isAuthenticated: boolean;
     loading: boolean;
     error: string | null;
-    otpSent: boolean;
+    passwordResetSent: boolean;
+}
+
+// Form Types
+export interface LoginForm {
+    email: string;
+    password: string;
+}
+
+export interface SignupForm {
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+    confirmPassword: string;
+}
+
+export interface ForgotPasswordForm {
+    email: string;
 }
 
 // Location Types

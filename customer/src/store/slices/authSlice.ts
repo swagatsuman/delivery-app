@@ -7,33 +7,41 @@ const initialState: AuthState = {
     isAuthenticated: false,
     loading: false,
     error: null,
-    otpSent: false
+    passwordResetSent: false
 };
 
-// Send OTP
-export const sendOTP = createAsyncThunk(
-    'auth/sendOTP',
-    async ({ phone, type, userData }: {
+// Sign Up
+export const signUpUser = createAsyncThunk(
+    'auth/signUp',
+    async ({ email, password, name, phone }: {
+        email: string;
+        password: string;
+        name: string;
         phone: string;
-        type: 'login' | 'signup';
-        userData?: { name: string }
     }) => {
-        const response = await authService.sendOTP(phone, type, userData);
+        const response = await authService.signUp(email, password, name, phone);
         return response;
     }
 );
 
-// Verify OTP
-export const verifyOTP = createAsyncThunk(
-    'auth/verifyOTP',
-    async ({ phone, otp, type, userData }: {
-        phone: string;
-        otp: string;
-        type: 'login' | 'signup';
-        userData?: { name: string }
+// Sign In
+export const signInUser = createAsyncThunk(
+    'auth/signIn',
+    async ({ email, password }: {
+        email: string;
+        password: string;
     }) => {
-        const response = await authService.verifyOTP(phone, otp, type, userData);
+        const response = await authService.signIn(email, password);
         return response;
+    }
+);
+
+// Reset Password
+export const resetPassword = createAsyncThunk(
+    'auth/resetPassword',
+    async (email: string) => {
+        await authService.resetPassword(email);
+        return email;
     }
 );
 
@@ -65,41 +73,54 @@ const authSlice = createSlice({
             state.user = action.payload;
             state.isAuthenticated = !!action.payload;
         },
-        resetOtpSent: (state) => {
-            state.otpSent = false;
+        resetPasswordResetSent: (state) => {
+            state.passwordResetSent = false;
         }
     },
     extraReducers: (builder) => {
         builder
-            // Send OTP
-            .addCase(sendOTP.pending, (state) => {
-                state.loading = true;
-                state.error = null;
-                state.otpSent = false;
-            })
-            .addCase(sendOTP.fulfilled, (state) => {
-                state.loading = false;
-                state.otpSent = true;
-            })
-            .addCase(sendOTP.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.error.message || 'Failed to send OTP';
-                state.otpSent = false;
-            })
-            // Verify OTP
-            .addCase(verifyOTP.pending, (state) => {
+            // Sign Up
+            .addCase(signUpUser.pending, (state) => {
                 state.loading = true;
                 state.error = null;
             })
-            .addCase(verifyOTP.fulfilled, (state, action) => {
+            .addCase(signUpUser.fulfilled, (state, action) => {
                 state.loading = false;
                 state.user = action.payload;
                 state.isAuthenticated = true;
-                state.otpSent = false;
             })
-            .addCase(verifyOTP.rejected, (state, action) => {
+            .addCase(signUpUser.rejected, (state, action) => {
                 state.loading = false;
-                state.error = action.error.message || 'Invalid OTP';
+                state.error = action.error.message || 'Failed to create account';
+            })
+            // Sign In
+            .addCase(signInUser.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(signInUser.fulfilled, (state, action) => {
+                state.loading = false;
+                state.user = action.payload;
+                state.isAuthenticated = true;
+            })
+            .addCase(signInUser.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.error.message || 'Failed to sign in';
+            })
+            // Reset Password
+            .addCase(resetPassword.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+                state.passwordResetSent = false;
+            })
+            .addCase(resetPassword.fulfilled, (state) => {
+                state.loading = false;
+                state.passwordResetSent = true;
+            })
+            .addCase(resetPassword.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.error.message || 'Failed to send reset email';
+                state.passwordResetSent = false;
             })
             // Get Current User
             .addCase(getCurrentUser.pending, (state) => {
@@ -119,10 +140,10 @@ const authSlice = createSlice({
                 state.user = null;
                 state.isAuthenticated = false;
                 state.error = null;
-                state.otpSent = false;
+                state.passwordResetSent = false;
             });
     }
 });
 
-export const { clearError, setUser, resetOtpSent } = authSlice.actions;
+export const { clearError, setUser, resetPasswordResetSent } = authSlice.actions;
 export default authSlice.reducer;

@@ -10,7 +10,6 @@ import { Loading } from './components/ui/Loading';
 // Lazy load pages
 const Login = lazy(() => import('./pages/auth/Login'));
 const Signup = lazy(() => import('./pages/auth/Signup'));
-const OTPVerification = lazy(() => import('./pages/auth/OTPVerification'));
 const LocationSetup = lazy(() => import('./pages/auth/LocationSetup'));
 const Home = lazy(() => import('./pages/home/Home'));
 const Search = lazy(() => import('./pages/search/Search'));
@@ -29,15 +28,11 @@ function App() {
         <Provider store={store}>
             <Router>
                 <div className="min-h-screen bg-background">
-                    {/* Hidden reCAPTCHA container for Firebase Auth */}
-                    <div id="recaptcha-container"></div>
-
                     <Suspense fallback={<Loading fullScreen />}>
                         <Routes>
                             {/* Public Routes */}
                             <Route path="/login" element={<Login />} />
                             <Route path="/signup" element={<Signup />} />
-                            <Route path="/verify-otp" element={<OTPVerification />} />
                             <Route path="/location-setup" element={<LocationSetup />} />
 
                             {/* Protected Routes with Mobile Layout */}

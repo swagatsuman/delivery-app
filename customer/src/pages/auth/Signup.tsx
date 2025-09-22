@@ -1,16 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, Phone, ArrowRight } from 'lucide-react';
+import { User, Mail, Phone, Lock, Eye, EyeOff } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
-import { sendOTP } from '../../store/slices/authSlice';
-import { validatePhone } from '../../utils/helpers';
+import { signUpUser } from '../../store/slices/authSlice';
 
 interface SignupFormData {
     name: string;
+    email: string;
     phone: string;
+    password: string;
+    confirmPassword: string;
 }
 
 const Signup: React.FC = () => {
@@ -18,26 +20,27 @@ const Signup: React.FC = () => {
     const navigate = useNavigate();
     const { loading, error } = useAppSelector(state => state.auth);
 
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
     const {
         register,
         handleSubmit,
+        watch,
         formState: { errors }
     } = useForm<SignupFormData>();
 
+    const password = watch('password');
+
     const onSubmit = async (data: SignupFormData) => {
         try {
-            await dispatch(sendOTP({
-                phone: data.phone,
-                type: 'signup',
-                userData: { name: data.name }
+            await dispatch(signUpUser({
+                email: data.email,
+                password: data.password,
+                name: data.name,
+                phone: data.phone
             })).unwrap();
-            navigate('/verify-otp', {
-                state: {
-                    phone: data.phone,
-                    type: 'signup',
-                    userData: { name: data.name }
-                }
-            });
+            navigate('/location-setup');
         } catch (error) {
             // Error handled by Redux
         }
@@ -68,10 +71,31 @@ const Signup: React.FC = () => {
                             placeholder="Enter your full name"
                             {...register('name', {
                                 required: 'Name is required',
-                                minLength: { value: 2, message: 'Name must be at least 2 characters' }
+                                minLength: {
+                                    value: 2,
+                                    message: 'Name must be at least 2 characters'
+                                },
+                                maxLength: {
+                                    value: 50,
+                                    message: 'Name must be less than 50 characters'
+                                }
                             })}
                             error={errors.name?.message}
-                            className="text-lg"
+                        />
+
+                        <Input
+                            label="Email"
+                            type="email"
+                            icon={<Mail className="h-5 w-5" />}
+                            placeholder="Enter your email address"
+                            {...register('email', {
+                                required: 'Email is required',
+                                pattern: {
+                                    value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                                    message: 'Please enter a valid email address'
+                                }
+                            })}
+                            error={errors.email?.message}
                         />
 
                         <Input
@@ -81,11 +105,37 @@ const Signup: React.FC = () => {
                             placeholder="Enter your phone number"
                             {...register('phone', {
                                 required: 'Phone number is required',
-                                validate: (value) => validatePhone(value) || 'Please enter a valid phone number'
+                                pattern: {
+                                    value: /^[6-9]\d{9}$/,
+                                    message: 'Please enter a valid 10-digit phone number'
+                                }
                             })}
                             error={errors.phone?.message}
-                            className="text-lg"
                         />
+
+                        <div className="relative">
+                            <Input
+                                label="Password"
+                                type={showPassword ? 'text' : 'password'}
+                                icon={<Lock className="h-5 w-5" />}
+                                placeholder="Create a password"
+                                {...register('password', {
+                                    required: 'Password is required',
+                                    minLength: {
+                                        value: 8,
+                                        message: 'Password must be at least 8 characters'
+                                    },
+                                })}
+                                error={errors.password?.message}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                className="absolute right-3 top-9 p-1 text-secondary-400 hover:text-secondary-600"
+                            >
+                                {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                            </button>
+                        </div>
 
                         {error && (
                             <div className="p-4 bg-error-50 border border-error-200 rounded-lg">
@@ -99,19 +149,14 @@ const Signup: React.FC = () => {
                             loading={loading}
                             disabled={loading}
                         >
-                            {loading ? 'Sending OTP...' : (
-                                <>
-                                    Create Account
-                                    <ArrowRight className="ml-2 h-5 w-5" />
-                                </>
-                            )}
+                            {loading ? 'Creating Account...' : 'Create Account'}
                         </Button>
                     </form>
 
                     <div className="mt-8 text-center">
                         <p className="text-secondary-600">
                             Already have an account?{' '}
-                            <Link to="/login" className="text-primary-600 font-semibold">
+                            <Link to="/login" className="text-primary-600 font-semibold hover:text-primary-700">
                                 Sign In
                             </Link>
                         </p>

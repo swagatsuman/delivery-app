@@ -12,6 +12,36 @@ export const validatePhone = (phone: string): boolean => {
     return phoneRegex.test(cleanPhone);
 };
 
+export const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+};
+
+export const validatePassword = (password: string): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+
+    if (password.length < 6) {
+        errors.push('Password must be at least 6 characters long');
+    }
+
+    if (!/[a-z]/.test(password)) {
+        errors.push('Password must contain at least one lowercase letter');
+    }
+
+    if (!/[A-Z]/.test(password)) {
+        errors.push('Password must contain at least one uppercase letter');
+    }
+
+    if (!/\d/.test(password)) {
+        errors.push('Password must contain at least one number');
+    }
+
+    return {
+        isValid: errors.length === 0,
+        errors
+    };
+};
+
 export const formatPhone = (phone: string): string => {
     return `+91 ${phone.slice(0, 5)} ${phone.slice(5)}`;
 };
@@ -67,11 +97,6 @@ export const debounce = <T extends (...args: any[]) => any>(
 
 export const capitalizeFirst = (str: string): string => {
     return str.charAt(0).toUpperCase() + str.slice(1);
-};
-
-export const isValidEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
 };
 
 export const isValidPincode = (pincode: string): boolean => {
