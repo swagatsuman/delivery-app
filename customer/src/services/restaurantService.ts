@@ -282,27 +282,28 @@ class RestaurantService {
     }
 
     private isRestaurantOpen(operatingHours?: any): boolean {
-        if (!operatingHours) return true;
-
-        const now = new Date();
-        const currentTime = now.getHours() * 60 + now.getMinutes();
-        const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
-
-        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-        const todayHours = operatingHours[dayNames[dayOfWeek]];
-
-        if (!todayHours || !todayHours.isOpen) return false;
-
-        const openTime = this.timeStringToMinutes(todayHours.openTime);
-        const closeTime = this.timeStringToMinutes(todayHours.closeTime);
-
-        if (closeTime > openTime) {
-            // Same day
-            return currentTime >= openTime && currentTime <= closeTime;
-        } else {
-            // Crosses midnight
-            return currentTime >= openTime || currentTime <= closeTime;
-        }
+        return operatingHours.isOpen;
+        // if (!operatingHours) return true;
+        //
+        // const now = new Date();
+        // const currentTime = now.getHours() * 60 + now.getMinutes();
+        // const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+        //
+        // const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        // const todayHours = operatingHours[dayNames[dayOfWeek]];
+        //
+        // if (!todayHours || !todayHours.isOpen) return false;
+        //
+        // const openTime = this.timeStringToMinutes(todayHours.openTime);
+        // const closeTime = this.timeStringToMinutes(todayHours.closeTime);
+        //
+        // if (closeTime > openTime) {
+        //     // Same day
+        //     return currentTime >= openTime && currentTime <= closeTime;
+        // } else {
+        //     // Crosses midnight
+        //     return currentTime >= openTime || currentTime <= closeTime;
+        // }
     }
 
     private timeStringToMinutes(timeString: string): number {

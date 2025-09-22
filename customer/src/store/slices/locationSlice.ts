@@ -2,11 +2,51 @@ import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/tool
 import type { LocationState, Address } from '../../types';
 import { locationService } from '../../services/locationService';
 
+// Load persisted location state
+const loadPersistedLocationState = (): Partial<LocationState> => {
+    try {
+        const currentLocation = localStorage.getItem('foodEatsCurrentLocation');
+        const addresses = localStorage.getItem('foodEatsAddresses');
+
+        const persistedState: Partial<LocationState> = {};
+
+        if (currentLocation) {
+            const location = JSON.parse(currentLocation);
+            if (location && location.id && location.coordinates) {
+                persistedState.currentLocation = {
+                    ...location,
+                    createdAt: new Date(location.createdAt),
+                    updatedAt: new Date(location.updatedAt)
+                };
+            }
+        }
+
+        if (addresses) {
+            const addressList = JSON.parse(addresses);
+            if (Array.isArray(addressList)) {
+                persistedState.addresses = addressList.map(addr => ({
+                    ...addr,
+                    createdAt: new Date(addr.createdAt),
+                    updatedAt: new Date(addr.updatedAt)
+                }));
+            }
+        }
+
+        return persistedState;
+    } catch (error) {
+        console.warn('Error loading persisted location state:', error);
+        localStorage.removeItem('foodEatsCurrentLocation');
+        localStorage.removeItem('foodEatsAddresses');
+        return {};
+    }
+};
+
 const initialState: LocationState = {
     currentLocation: null,
     addresses: [],
     loading: false,
-    error: null
+    error: null,
+    ...loadPersistedLocationState()
 };
 
 // Set user location
@@ -63,6 +103,37 @@ export const setDefaultAddress = createAsyncThunk(
     }
 );
 
+// Initialize location from storage
+export const initializeLocation = createAsyncThunk(
+    'location/initialize',
+    async (userId: string) => {
+        try {
+            // First try to get from localStorage
+            const persistedState = loadPersistedLocationState();
+            if (persistedState.currentLocation) {
+                return persistedState;
+            }
+
+            // If no persisted location, fetch from server
+            const addresses = await locationService.getUserAddresses(userId);
+            const defaultAddress = addresses.find(addr => addr.isDefault) || addresses[0];
+
+            if (defaultAddress) {
+                await locationService.setCurrentLocation(defaultAddress);
+                return {
+                    currentLocation: defaultAddress,
+                    addresses
+                };
+            }
+
+            return { addresses, currentLocation: null };
+        } catch (error) {
+            console.error('Error initializing location:', error);
+            return { addresses: [], currentLocation: null };
+        }
+    }
+);
+
 const locationSlice = createSlice({
     name: 'location',
     initialState,
@@ -72,10 +143,51 @@ const locationSlice = createSlice({
         },
         setCurrentLocation: (state, action: PayloadAction<Address>) => {
             state.currentLocation = action.payload;
+
+            // Persist to localStorage
+            try {
+                localStorage.setItem('foodEatsCurrentLocation', JSON.stringify(action.payload));
+            } catch (error) {
+                console.warn('Error persisting current location:', error);
+            }
+        },
+        clearCurrentLocation: (state) => {
+            state.currentLocation = null;
+            localStorage.removeItem('foodEatsCurrentLocation');
+        },
+        // Action to restore state from localStorage on app start
+        restorePersistedLocation: (state) => {
+            const persistedState = loadPersistedLocationState();
+            if (persistedState.currentLocation) {
+                state.currentLocation = persistedState.currentLocation;
+            }
+            if (persistedState.addresses) {
+                state.addresses = persistedState.addresses;
+            }
         }
     },
     extraReducers: (builder) => {
         builder
+            // Initialize Location
+            .addCase(initializeLocation.fulfilled, (state, action) => {
+                const { currentLocation, addresses } = action.payload;
+                if (currentLocation) {
+                    state.currentLocation = currentLocation;
+                    try {
+                        localStorage.setItem('foodEatsCurrentLocation', JSON.stringify(currentLocation));
+                    } catch (error) {
+                        console.warn('Error persisting location:', error);
+                    }
+                }
+                if (addresses) {
+                    state.addresses = addresses;
+                    try {
+                        localStorage.setItem('foodEatsAddresses', JSON.stringify(addresses));
+                    } catch (error) {
+                        console.warn('Error persisting addresses:', error);
+                    }
+                }
+            })
             // Set User Location
             .addCase(setUserLocation.pending, (state) => {
                 state.loading = true;
@@ -89,6 +201,14 @@ const locationSlice = createSlice({
                 const existingIndex = state.addresses.findIndex(addr => addr.id === action.payload.id);
                 if (existingIndex === -1) {
                     state.addresses.push(action.payload);
+                }
+
+                // Persist both
+                try {
+                    localStorage.setItem('foodEatsCurrentLocation', JSON.stringify(action.payload));
+                    localStorage.setItem('foodEatsAddresses', JSON.stringify(state.addresses));
+                } catch (error) {
+                    console.warn('Error persisting location data:', error);
                 }
             })
             .addCase(setUserLocation.rejected, (state, action) => {
@@ -109,7 +229,19 @@ const locationSlice = createSlice({
                     const defaultAddress = action.payload.find(addr => addr.isDefault);
                     if (defaultAddress) {
                         state.currentLocation = defaultAddress;
+                        try {
+                            localStorage.setItem('foodEatsCurrentLocation', JSON.stringify(defaultAddress));
+                        } catch (error) {
+                            console.warn('Error persisting location:', error);
+                        }
                     }
+                }
+
+                // Persist addresses
+                try {
+                    localStorage.setItem('foodEatsAddresses', JSON.stringify(action.payload));
+                } catch (error) {
+                    console.warn('Error persisting addresses:', error);
                 }
             })
             .addCase(fetchAddresses.rejected, (state, action) => {
@@ -120,9 +252,21 @@ const locationSlice = createSlice({
             .addCase(addAddress.fulfilled, (state, action) => {
                 state.addresses.push(action.payload);
 
-                // Set as current location if it's the first address
-                if (state.addresses.length === 1) {
+                // Set as current location if it's the first address or is default
+                if (state.addresses.length === 1 || action.payload.isDefault) {
                     state.currentLocation = action.payload;
+                    try {
+                        localStorage.setItem('foodEatsCurrentLocation', JSON.stringify(action.payload));
+                    } catch (error) {
+                        console.warn('Error persisting location:', error);
+                    }
+                }
+
+                // Persist addresses
+                try {
+                    localStorage.setItem('foodEatsAddresses', JSON.stringify(state.addresses));
+                } catch (error) {
+                    console.warn('Error persisting addresses:', error);
                 }
             })
             // Update Address
@@ -134,6 +278,18 @@ const locationSlice = createSlice({
                     // Update current location if it's the same address
                     if (state.currentLocation?.id === action.payload.id) {
                         state.currentLocation = action.payload;
+                        try {
+                            localStorage.setItem('foodEatsCurrentLocation', JSON.stringify(action.payload));
+                        } catch (error) {
+                            console.warn('Error persisting location:', error);
+                        }
+                    }
+
+                    // Persist addresses
+                    try {
+                        localStorage.setItem('foodEatsAddresses', JSON.stringify(state.addresses));
+                    } catch (error) {
+                        console.warn('Error persisting addresses:', error);
                     }
                 }
             })
@@ -143,7 +299,25 @@ const locationSlice = createSlice({
 
                 // Clear current location if it was the deleted address
                 if (state.currentLocation?.id === action.payload) {
-                    state.currentLocation = state.addresses.find(addr => addr.isDefault) || null;
+                    const defaultAddress = state.addresses.find(addr => addr.isDefault);
+                    state.currentLocation = defaultAddress || null;
+
+                    if (state.currentLocation) {
+                        try {
+                            localStorage.setItem('foodEatsCurrentLocation', JSON.stringify(state.currentLocation));
+                        } catch (error) {
+                            console.warn('Error persisting location:', error);
+                        }
+                    } else {
+                        localStorage.removeItem('foodEatsCurrentLocation');
+                    }
+                }
+
+                // Persist addresses
+                try {
+                    localStorage.setItem('foodEatsAddresses', JSON.stringify(state.addresses));
+                } catch (error) {
+                    console.warn('Error persisting addresses:', error);
                 }
             })
             // Set Default Address
@@ -158,10 +332,28 @@ const locationSlice = createSlice({
                 const defaultAddress = state.addresses.find(addr => addr.id === action.payload);
                 if (defaultAddress) {
                     state.currentLocation = defaultAddress;
+                    try {
+                        localStorage.setItem('foodEatsCurrentLocation', JSON.stringify(defaultAddress));
+                    } catch (error) {
+                        console.warn('Error persisting location:', error);
+                    }
+                }
+
+                // Persist addresses
+                try {
+                    localStorage.setItem('foodEatsAddresses', JSON.stringify(state.addresses));
+                } catch (error) {
+                    console.warn('Error persisting addresses:', error);
                 }
             });
     }
 });
 
-export const { clearError, setCurrentLocation } = locationSlice.actions;
+export const {
+    clearError,
+    setCurrentLocation,
+    clearCurrentLocation,
+    restorePersistedLocation
+} = locationSlice.actions;
+
 export default locationSlice.reducer;

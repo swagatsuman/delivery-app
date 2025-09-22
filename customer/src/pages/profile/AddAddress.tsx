@@ -27,7 +27,7 @@ const AddAddress: React.FC = () => {
         city: editingAddress?.city || '',
         state: editingAddress?.state || '',
         pincode: editingAddress?.pincode || '',
-        coordinates: editingAddress?.coordinates || { lat: 0, lng: 0 }
+        coordinates: editingAddress?.coordinates || {lat: 0, lng: 0}
     });
 
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -36,10 +36,10 @@ const AddAddress: React.FC = () => {
     const addressLabels = ['Home', 'Work', 'Hotel', 'Other'];
 
     const handleInputChange = (field: string, value: string) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
+        setFormData(prev => ({...prev, [field]: value}));
         // Clear error when user starts typing
         if (errors[field]) {
-            setErrors(prev => ({ ...prev, [field]: '' }));
+            setErrors(prev => ({...prev, [field]: ''}));
         }
     };
 
@@ -58,10 +58,10 @@ const AddAddress: React.FC = () => {
         // Validate form
         const validationErrors = validateForm(formData, {
             address: VALIDATION_RULES.address,
-            city: { required: true, message: 'City is required' },
-            state: { required: true, message: 'State is required' },
+            city: {required: true, message: 'City is required'},
+            state: {required: true, message: 'State is required'},
             pincode: VALIDATION_RULES.pincode,
-            ...(formData.phone && { phone: VALIDATION_RULES.phone })
+            ...(formData.phone && {phone: VALIDATION_RULES.phone})
         });
 
         if (Object.keys(validationErrors).length > 0) {
@@ -96,7 +96,7 @@ const AddAddress: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-background">
-            <TopHeader title={isEditing ? 'Edit Address' : 'Add New Address'} />
+            <TopHeader title={isEditing ? 'Edit Address' : 'Add New Address'}/>
 
             <div className="p-4 space-y-6">
                 {/* Address Search */}
@@ -162,7 +162,7 @@ const AddAddress: React.FC = () => {
 
                     <Input
                         label="Name"
-                        icon={<User className="h-5 w-5" />}
+                        icon={<User className="h-5 w-5"/>}
                         value={formData.name}
                         onChange={(e) => handleInputChange('name', e.target.value)}
                         placeholder="Full name"
@@ -171,7 +171,7 @@ const AddAddress: React.FC = () => {
 
                     <Input
                         label="Phone Number"
-                        icon={<Phone className="h-5 w-5" />}
+                        icon={<Phone className="h-5 w-5"/>}
                         value={formData.phone}
                         onChange={(e) => handleInputChange('phone', e.target.value)}
                         placeholder="Phone number"

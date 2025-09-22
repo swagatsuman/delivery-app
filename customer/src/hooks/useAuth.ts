@@ -1,20 +1,25 @@
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from './useAppDispatch';
-import { getCurrentUser } from '../store/slices/authSlice';
+import { getCurrentUser, setUser } from '../store/slices/authSlice';
+import { authService } from '../services/authService';
 
 export const useAuth = () => {
     const dispatch = useAppDispatch();
-    const { user, isAuthenticated, loading } = useAppSelector(state => state.auth);
+    const { user, isAuthenticated, loading, error } = useAppSelector(state => state.auth);
 
     useEffect(() => {
-        if (!user && !loading) {
-            dispatch(getCurrentUser());
-        }
-    }, [dispatch, user, loading]);
+        const unsubscribe = authService.onAuthStateChanged((authUser) => {
+            dispatch(setUser(authUser?.userData || null));
+        });
+
+        return unsubscribe;
+    }, [dispatch]);
 
     return {
         user,
         isAuthenticated,
-        loading
+        loading,
+        error,
+        getCurrentUser: () => dispatch(getCurrentUser())
     };
 };

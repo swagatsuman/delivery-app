@@ -29,21 +29,21 @@ export const GooglePlacesInput: React.FC<GooglePlacesInputProps> = ({
     const mockSuggestions = [
         {
             description: "Koramangala, Bangalore, Karnataka",
-            coordinates: { lat: 12.9351929, lng: 77.62448069999999 },
+            coordinates: {lat: 12.9351929, lng: 77.62448069999999},
             city: "Bangalore",
             state: "Karnataka",
             pincode: "560034"
         },
         {
             description: "Indiranagar, Bangalore, Karnataka",
-            coordinates: { lat: 12.9698196, lng: 77.6382433 },
+            coordinates: {lat: 12.9698196, lng: 77.6382433},
             city: "Bangalore",
             state: "Karnataka",
             pincode: "560038"
         },
         {
             description: "Whitefield, Bangalore, Karnataka",
-            coordinates: { lat: 12.9698196, lng: 77.7499721 },
+            coordinates: {lat: 12.9698196, lng: 77.7499721},
             city: "Bangalore",
             state: "Karnataka",
             pincode: "560066"
@@ -109,7 +109,7 @@ export const GooglePlacesInput: React.FC<GooglePlacesInputProps> = ({
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 placeholder={placeholder}
-                icon={<Search className="h-5 w-5" />}
+                icon={<Search className="h-5 w-5"/>}
             />
 
             {/* Current Location Button */}
@@ -118,12 +118,13 @@ export const GooglePlacesInput: React.FC<GooglePlacesInputProps> = ({
                 onClick={getCurrentLocation}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 text-primary-600 hover:text-primary-700"
             >
-                <MapPin className="h-5 w-5" />
+                <MapPin className="h-5 w-5"/>
             </button>
 
             {/* Suggestions Dropdown */}
             {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-secondary-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                <div
+                    className="absolute top-full left-0 right-0 mt-1 bg-white border border-secondary-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
                     {suggestions.map((place, index) => (
                         <button
                             key={index}
@@ -132,7 +133,7 @@ export const GooglePlacesInput: React.FC<GooglePlacesInputProps> = ({
                             className="w-full text-left p-3 hover:bg-secondary-50 border-b border-secondary-100 last:border-b-0"
                         >
                             <div className="flex items-center space-x-3">
-                                <MapPin className="h-4 w-4 text-secondary-500 flex-shrink-0" />
+                                <MapPin className="h-4 w-4 text-secondary-500 flex-shrink-0"/>
                                 <span className="text-secondary-900">{place.description}</span>
                             </div>
                         </button>
