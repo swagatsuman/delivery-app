@@ -12,12 +12,12 @@ import { useCart } from '../../hooks/useCart';
 import type { MenuFilters as MenuFiltersType } from '../../types';
 
 const Restaurant: React.FC = () => {
-    const { id } = useParams<{ id: string }>();
+    const {id} = useParams<{ id: string }>();
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
-    const { selectedRestaurant, menu, loading } = useAppSelector(state => state.restaurant);
-    const { items: cartItems, restaurantId } = useAppSelector(state => state.cart);
-    const { getTotalItems, getTotalAmount } = useCart();
+    const {selectedRestaurant, menu, loading} = useAppSelector(state => state.restaurant);
+    const {items: cartItems, restaurantId} = useAppSelector(state => state.cart);
+    const {getTotalItems, getTotalAmount} = useCart();
 
     const [filters, setFilters] = useState<MenuFiltersType>({
         category: '',
@@ -46,7 +46,7 @@ const Restaurant: React.FC = () => {
     };
 
     const handleFilterChange = (newFilters: Partial<MenuFiltersType>) => {
-        setFilters(prev => ({ ...prev, ...newFilters }));
+        setFilters(prev => ({...prev, ...newFilters}));
     };
 
     const filteredMenu = menu.filter(category => {
@@ -86,7 +86,7 @@ const Restaurant: React.FC = () => {
     }));
 
     if (loading || !selectedRestaurant) {
-        return <Loading fullScreen />;
+        return <Loading fullScreen/>;
     }
 
     const totalItems = getTotalItems();
@@ -101,24 +101,24 @@ const Restaurant: React.FC = () => {
                         onClick={handleBack}
                         className="p-2 hover:bg-secondary-100 rounded-full"
                     >
-                        <ArrowLeft className="h-6 w-6 text-secondary-700" />
+                        <ArrowLeft className="h-6 w-6 text-secondary-700"/>
                     </button>
                     <h1 className="text-lg font-semibold text-secondary-900 flex-1 mx-4 truncate">
                         {selectedRestaurant.name}
                     </h1>
                     <div className="flex space-x-2">
                         <button className="p-2 hover:bg-secondary-100 rounded-full">
-                            <Heart className="h-5 w-5 text-secondary-600" />
+                            <Heart className="h-5 w-5 text-secondary-600"/>
                         </button>
                         <button className="p-2 hover:bg-secondary-100 rounded-full">
-                            <Share className="h-5 w-5 text-secondary-600" />
+                            <Share className="h-5 w-5 text-secondary-600"/>
                         </button>
                     </div>
                 </div>
             </div>
 
             {/* Restaurant Info */}
-            <RestaurantHeader restaurant={selectedRestaurant} />
+            <RestaurantHeader restaurant={selectedRestaurant}/>
 
             {/* Menu Filters */}
             <div className="sticky top-16 z-40 bg-surface border-b border-secondary-200">
@@ -134,7 +134,8 @@ const Restaurant: React.FC = () => {
             {hasDifferentRestaurantItems && (
                 <div className="mx-4 mt-4 p-3 bg-warning-50 border border-warning-200 rounded-lg">
                     <p className="text-sm text-warning-800">
-                        Your cart contains items from a different restaurant. Adding items from this restaurant will clear your current cart.
+                        Your cart contains items from a different restaurant. Adding items from this restaurant will
+                        clear your current cart.
                     </p>
                 </div>
             )}

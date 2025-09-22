@@ -5,12 +5,9 @@ import {
     getDoc,
     query,
     where,
-    orderBy,
-    limit,
-    GeoPoint
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import type { Restaurant, Category, MenuCategory, Coordinates, SearchResults } from '../types';
+import type { Restaurant, Category, MenuCategory, MenuItem, Coordinates, SearchResults } from '../types';
 
 class RestaurantService {
 
@@ -151,32 +148,46 @@ class RestaurantService {
 
     async getRestaurantMenu(restaurantId: string): Promise<MenuCategory[]> {
         try {
-            // Get menu categories
-            const categoriesRef = collection(db, 'restaurants', restaurantId, 'menuCategories');
-            const categoriesSnapshot = await getDocs(categoriesRef);
+            console.log('Fetching menu for restaurant:', restaurantId);
+
+            // First, get all categories for this restaurant from the categories collection
+            const categoriesRef = collection(db, 'categories');
+            const categoriesQuery = query(categoriesRef, where('restaurantId', '==', restaurantId));
+            const categoriesSnapshot = await getDocs(categoriesQuery);
+
+            console.log('Categories found:', categoriesSnapshot.size);
 
             const menuCategories: MenuCategory[] = [];
 
             for (const categoryDoc of categoriesSnapshot.docs) {
                 const categoryData = categoryDoc.data();
+                console.log('Processing category:', categoryData.name, 'with ID:', categoryDoc.id);
 
-                // Get menu items for this category
-                const itemsRef = collection(db, 'restaurants', restaurantId, 'menuItems');
-                const itemsQuery = query(itemsRef, where('categoryId', '==', categoryDoc.id));
+                // Get menu items for this category from menuItems collection
+                const itemsRef = collection(db, 'menuItems');
+                const itemsQuery = query(
+                    itemsRef,
+                    where('restaurantId', '==', restaurantId),
+                    where('categoryId', '==', categoryDoc.id)
+                );
                 const itemsSnapshot = await getDocs(itemsQuery);
 
-                const items = itemsSnapshot.docs.map(itemDoc => {
+                console.log(`Items found for category ${categoryData.name}:`, itemsSnapshot.size);
+
+                const items: MenuItem[] = itemsSnapshot.docs.map(itemDoc => {
                     const itemData = itemDoc.data();
+                    console.log('Processing item:', itemData.name);
+
                     return {
                         id: itemDoc.id,
-                        restaurantId,
+                        restaurantId: restaurantId,
                         categoryId: categoryDoc.id,
                         name: itemData.name,
-                        description: itemData.description,
+                        description: itemData.description || '',
                         images: itemData.images || [],
-                        price: itemData.price,
+                        price: itemData.price || 0,
                         discountPrice: itemData.discountPrice,
-                        type: itemData.type,
+                        type: itemData.type || 'veg',
                         spiceLevel: itemData.spiceLevel || 'mild',
                         isRecommended: itemData.isRecommended || false,
                         isAvailable: itemData.isAvailable !== false,
@@ -186,14 +197,19 @@ class RestaurantService {
                     };
                 });
 
+                // Only add categories that have items
+                if (items.length > 0) {
                 menuCategories.push({
                     id: categoryDoc.id,
                     name: categoryData.name,
-                    items
+                        items: items
                 });
             }
+            }
 
+            console.log('Final menu categories:', menuCategories.length);
             return menuCategories;
+
         } catch (error) {
             console.error('Error fetching restaurant menu:', error);
             throw new Error('Failed to fetch restaurant menu');
@@ -209,7 +225,7 @@ class RestaurantService {
             const restaurantsSnapshot = await getDocs(restaurantsRef);
 
             const restaurants: Restaurant[] = [];
-            const dishes: any[] = [];
+            const dishes: MenuItem[] = [];
 
             for (const restaurantDoc of restaurantsSnapshot.docs) {
                 const restaurantData = restaurantDoc.data();
@@ -223,12 +239,13 @@ class RestaurantService {
                     restaurants.push(restaurant);
                 }
 
-                // Search menu items
-                const itemsRef = collection(db, 'restaurants', restaurantDoc.id, 'menuItems');
-                const itemsSnapshot = await getDocs(itemsRef);
+                // Search menu items for this restaurant
+                const itemsRef = collection(db, 'menuItems');
+                const itemsQuery = query(itemsRef, where('restaurantId', '==', restaurantDoc.id));
+                const itemsSnapshot = await getDocs(itemsQuery);
 
                 itemsSnapshot.docs.forEach(itemDoc => {
-                    const itemData = itemDoc.data();
+                    const itemData: any = itemDoc.data();
                     if (
                         itemData.name?.toLowerCase().includes(query) ||
                         itemData.description?.toLowerCase().includes(query)
@@ -236,18 +253,19 @@ class RestaurantService {
                         dishes.push({
                             id: itemDoc.id,
                             restaurantId: restaurantDoc.id,
-                            categoryId: itemData.categoryId,
+                            categoryId: itemData.categoryId || '',
                             name: itemData.name,
-                            description: itemData.description,
+                            description: itemData.description || '',
                             images: itemData.images || [],
-                            price: itemData.price,
+                            price: itemData.price || 0,
                             discountPrice: itemData.discountPrice,
-                            type: itemData.type,
+                            type: itemData.type || 'veg',
                             spiceLevel: itemData.spiceLevel || 'mild',
                             isRecommended: itemData.isRecommended || false,
                             isAvailable: itemData.isAvailable !== false,
                             rating: itemData.rating || 0,
-                            totalRatings: itemData.totalRatings || 0
+                            totalRatings: itemData.totalRatings || 0,
+                            customizations: itemData.customizations || []
                         });
                     }
                 });
@@ -282,28 +300,8 @@ class RestaurantService {
     }
 
     private isRestaurantOpen(operatingHours?: any): boolean {
-        return operatingHours.isOpen;
-        // if (!operatingHours) return true;
-        //
-        // const now = new Date();
-        // const currentTime = now.getHours() * 60 + now.getMinutes();
-        // const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
-        //
-        // const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-        // const todayHours = operatingHours[dayNames[dayOfWeek]];
-        //
-        // if (!todayHours || !todayHours.isOpen) return false;
-        //
-        // const openTime = this.timeStringToMinutes(todayHours.openTime);
-        // const closeTime = this.timeStringToMinutes(todayHours.closeTime);
-        //
-        // if (closeTime > openTime) {
-        //     // Same day
-        //     return currentTime >= openTime && currentTime <= closeTime;
-        // } else {
-        //     // Crosses midnight
-        //     return currentTime >= openTime || currentTime <= closeTime;
-        // }
+        if (!operatingHours) return true;
+        return operatingHours.isOpen || true;
     }
 
     private timeStringToMinutes(timeString: string): number {

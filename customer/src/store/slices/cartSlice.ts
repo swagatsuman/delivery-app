@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { CartState, CartItem, MenuItem, Address, CartPricing, SelectedCustomization } from '../../types';
 import { generateId } from '../../utils/helpers';
+import { parsePrice, getFinalPrice } from '../../utils/priceUtils';
 import { cartService } from '../../services/cartService';
 
 const initialState: CartState = {
@@ -20,33 +21,49 @@ const initialState: CartState = {
 
 // Helper function to calculate pricing
 const calculatePricing = (items: CartItem[], deliveryFee: number = 30): CartPricing => {
-    const itemTotal = items.reduce((total, item) => total + item.totalPrice, 0);
+    console.log('Calculating pricing for items:', items);
+
+    const itemTotal = items.reduce((total, item) => {
+        console.log(`Item: ${item.menuItem.name}, Quantity: ${item.quantity}, Total Price: ${item.totalPrice}`);
+        return total + item.totalPrice;
+    }, 0);
+
+    console.log('Item total:', itemTotal);
+
     const taxes = Math.round(itemTotal * 0.05); // 5% tax
     const discount = 0; // Apply coupon discounts here
     const actualDeliveryFee = itemTotal >= 299 ? 0 : deliveryFee; // Free delivery above 299
     const total = itemTotal + actualDeliveryFee + taxes - discount;
 
-    return {
+    const pricing = {
         itemTotal,
         deliveryFee: actualDeliveryFee,
         taxes,
         discount,
         total: Math.max(0, total)
     };
+
+    console.log('Final pricing:', pricing);
+    return pricing;
 };
 
 // Helper function to calculate item total price
 const calculateItemPrice = (menuItem: MenuItem, quantity: number, customizations: SelectedCustomization[]): number => {
-    let basePrice = menuItem.discountPrice || menuItem.price;
+    // Use utility function to get the final price (considering discounts)
+    const basePrice = getFinalPrice(menuItem.price, menuItem.discountPrice);
+
     let customizationPrice = 0;
 
     customizations.forEach(customization => {
         customization.selectedOptions.forEach(option => {
-            customizationPrice += option.price;
+            customizationPrice += parsePrice(option.price);
         });
     });
 
-    return (basePrice + customizationPrice) * quantity;
+    const totalPrice = (basePrice + customizationPrice) * quantity;
+    console.log(`Calculating price for ${menuItem.name}: originalPrice=${menuItem.price}, finalBasePrice=${basePrice}, customization=${customizationPrice}, quantity=${quantity}, total=${totalPrice}`);
+
+    return totalPrice;
 };
 
 const cartSlice = createSlice({
@@ -61,6 +78,8 @@ const cartSlice = createSlice({
             restaurantId: string;
         }>) => {
             const { menuItem, quantity, customizations, specialInstructions, restaurantId } = action.payload;
+
+            console.log('Adding to cart:', { menuItem: menuItem.name, quantity, price: menuItem.price });
 
             // If adding from different restaurant, clear cart
             if (state.restaurantId && state.restaurantId !== restaurantId) {
@@ -86,6 +105,7 @@ const cartSlice = createSlice({
                     state.items[existingItemIndex].quantity,
                     customizations
                 );
+                console.log('Updated existing item:', state.items[existingItemIndex]);
             } else {
                 // Add new item
                 const cartItem: CartItem = {
@@ -97,6 +117,7 @@ const cartSlice = createSlice({
                     totalPrice
                 };
                 state.items.push(cartItem);
+                console.log('Added new item:', cartItem);
             }
 
             // Recalculate pricing
@@ -132,6 +153,8 @@ const cartSlice = createSlice({
                     state.items[itemIndex].quantity,
                     state.items[itemIndex].customizations
                 );
+
+                console.log('Updated cart item:', state.items[itemIndex]);
 
                 // Recalculate pricing
                 state.pricing = calculatePricing(state.items);
@@ -189,6 +212,11 @@ const cartSlice = createSlice({
             state.pricing = calculatePricing(state.items);
         },
 
+        // Add action to recalculate pricing manually
+        recalculatePricing: (state) => {
+            state.pricing = calculatePricing(state.items);
+        },
+
         setLoading: (state, action: PayloadAction<boolean>) => {
             state.loading = action.payload;
         },
@@ -207,6 +235,7 @@ export const {
     setDeliveryAddress,
     applyCoupon,
     removeCoupon,
+    recalculatePricing,
     setLoading,
     setError
 } = cartSlice.actions;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Minus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { CartItem } from '../../components/features/cart/CartItem';
 import { BillDetails } from '../../components/features/cart/BillDetails';
@@ -114,7 +114,8 @@ const Cart: React.FC = () => {
                 </div>
             </div>
 
-            <div className="flex flex-col min-h-screen pb-24">
+            {/* Main Content - with proper padding bottom for checkout button */}
+            <div className="pb-4">
                 {/* Restaurant Info */}
                 {restaurant && (
                     <div className="bg-surface border-b border-secondary-200 p-4">
@@ -123,10 +124,15 @@ const Cart: React.FC = () => {
                                 src={restaurant.images[0]}
                                 alt={restaurant.name}
                                 className="w-12 h-12 rounded-lg object-cover"
+                                onError={(e) => {
+                                    e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' fill='%23f3f4f6'/%3E%3Ctext x='24' y='24' font-family='Arial, sans-serif' font-size='20' fill='%23d1d5db' text-anchor='middle' dominant-baseline='middle'%3E🏪%3C/text%3E%3C/svg%3E";
+                                }}
                             />
                             <div className="flex-1">
                                 <h3 className="font-semibold text-secondary-900">{restaurant.name}</h3>
-                                <p className="text-sm text-secondary-600">{restaurant.address.address}</p>
+                                <p className="text-sm text-secondary-600 break-words">
+                                    {restaurant.address.address}
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -134,18 +140,21 @@ const Cart: React.FC = () => {
 
                 {/* Delivery Address */}
                 <div className="bg-surface border-b border-secondary-200 p-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                            <h3 className="font-medium text-secondary-900 mb-1">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-secondary-900 mb-2">
                                 Deliver to
                             </h3>
                             {deliveryAddress ? (
                                 <div>
-                                    <p className="font-medium text-secondary-900">
+                                    <p className="font-medium text-secondary-900 mb-1">
                                         {deliveryAddress.label} {deliveryAddress.name && `• ${deliveryAddress.name}`}
                                     </p>
-                                    <p className="text-sm text-secondary-600 truncate">
+                                    <p className="text-sm text-secondary-600 break-words leading-relaxed">
                                         {deliveryAddress.address}
+                                    </p>
+                                    <p className="text-sm text-secondary-600 mt-1">
+                                        {deliveryAddress.city}, {deliveryAddress.state} - {deliveryAddress.pincode}
                                     </p>
                                 </div>
                             ) : (
@@ -158,6 +167,7 @@ const Cart: React.FC = () => {
                             variant="secondary"
                             size="sm"
                             onClick={handleChangeAddress}
+                            className="flex-shrink-0"
                         >
                             Change
                         </Button>
@@ -165,7 +175,7 @@ const Cart: React.FC = () => {
                 </div>
 
                 {/* Cart Items */}
-                <div className="flex-1 bg-surface">
+                <div className="bg-surface">
                     <div className="divide-y divide-secondary-100">
                         {items.map((item) => (
                             <CartItem
@@ -182,25 +192,25 @@ const Cart: React.FC = () => {
                 <div className="bg-surface border-t border-secondary-200">
                     <BillDetails pricing={pricing} />
                 </div>
+            </div>
 
-                {/* Checkout Button */}
-                <div className="fixed bottom-0 left-0 right-0 bg-surface border-t border-secondary-200 p-4">
-                    <Button
-                        onClick={handleCheckout}
-                        className="w-full h-12 text-lg"
-                        disabled={!deliveryAddress}
-                    >
-                        <div className="flex items-center justify-between w-full">
-                            <span>Proceed to Checkout</span>
-                            <span>₹{totalAmount}</span>
-                        </div>
-                    </Button>
-                    {!deliveryAddress && (
-                        <p className="text-sm text-error-600 text-center mt-2">
-                            Please select a delivery address to continue
-                        </p>
-                    )}
-                </div>
+            {/* Fixed Checkout Button */}
+            <div className="px-2 mb-2">
+                <Button
+                    onClick={handleCheckout}
+                    className="w-full h-12 text-lg"
+                    disabled={!deliveryAddress}
+                >
+                    <div className="flex items-center justify-between w-full">
+                        <span>Proceed to Checkout</span>
+                        <span>₹{totalAmount}</span>
+                    </div>
+                </Button>
+                {!deliveryAddress && (
+                    <p className="text-sm text-error-600 text-center mt-2">
+                        Please select a delivery address to continue
+                    </p>
+                )}
             </div>
         </div>
     );

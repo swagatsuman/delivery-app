@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CreditCard, Smartphone, Wallet, DollarSign } from 'lucide-react';
+import { CreditCard, Smartphone, Wallet, DollarSign } from 'lucide-react';
 import { TopHeader } from '../../components/layout/TopHeader';
 import { Button } from '../../components/ui/Button';
 import { useAppSelector, useAppDispatch } from '../../hooks/useAppDispatch';
 import { createOrder } from '../../store/slices/orderSlice';
 import { clearCart } from '../../store/slices/cartSlice';
-import type { PaymentMethod } from '../../types';
+import { fetchRestaurantDetails } from '../../store/slices/restaurantSlice';
+import type { PaymentMethod, Restaurant } from '../../types';
 
 const Checkout: React.FC = () => {
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
     const { items, pricing, deliveryAddress, restaurantId } = useAppSelector(state => state.cart);
-    const { restaurants } = useAppSelector(state => state.restaurant);
+    const { selectedRestaurant } = useAppSelector(state => state.restaurant);
     const { user } = useAppSelector(state => state.auth);
 
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('cash');
     const [specialInstructions, setSpecialInstructions] = useState('');
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-
-    const restaurant = restaurants.find(r => r.id === restaurantId);
+    const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
 
     const paymentMethods = [
         { id: 'cash', label: 'Cash on Delivery', icon: DollarSign, available: true },
@@ -31,11 +31,34 @@ const Checkout: React.FC = () => {
     useEffect(() => {
         if (!deliveryAddress || items.length === 0) {
             navigate('/cart');
+            return;
         }
-    }, [deliveryAddress, items, navigate]);
+
+        // Fetch restaurant details if not available
+        if (restaurantId) {
+            if (selectedRestaurant && selectedRestaurant.id === restaurantId) {
+                setRestaurant(selectedRestaurant);
+            } else {
+                console.log('Fetching restaurant details for checkout:', restaurantId);
+                dispatch(fetchRestaurantDetails(restaurantId))
+                    .unwrap()
+                    .then((restaurantData) => {
+                        setRestaurant(restaurantData);
+                    })
+                    .catch((error) => {
+                        console.error('Failed to fetch restaurant details:', error);
+                        // Show error or redirect back to cart
+                        navigate('/cart');
+                    });
+        }
+        }
+    }, [deliveryAddress, items, navigate, restaurantId, selectedRestaurant, dispatch]);
 
     const handlePlaceOrder = async () => {
-        if (!restaurant || !deliveryAddress || !user) return;
+        if (!restaurant || !deliveryAddress || !user) {
+            console.error('Missing required data for order:', { restaurant, deliveryAddress, user });
+            return;
+        }
 
         setIsPlacingOrder(true);
         try {
@@ -49,6 +72,7 @@ const Checkout: React.FC = () => {
                 estimatedDeliveryTime: new Date(Date.now() + 45 * 60 * 1000) // 45 minutes from now
             };
 
+            console.log('Placing order with data:', orderData);
             const order = await dispatch(createOrder(orderData)).unwrap();
             dispatch(clearCart());
 
@@ -56,11 +80,27 @@ const Checkout: React.FC = () => {
             navigate(`/order-tracking/${order.id}`, { replace: true });
         } catch (error) {
             console.error('Failed to place order:', error);
-            // Show error toast
+            // Show error toast or alert
+            alert('Failed to place order. Please try again.');
         } finally {
             setIsPlacingOrder(false);
         }
     };
+
+    // Show loading while fetching restaurant details
+    if (!restaurant && restaurantId) {
+        return (
+            <div className="min-h-screen bg-background">
+                <TopHeader title="Checkout" />
+                <div className="flex items-center justify-center py-20">
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto mb-4"></div>
+                        <p className="text-secondary-600">Loading restaurant details...</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     if (!restaurant || !deliveryAddress) {
         return null;
@@ -68,18 +108,18 @@ const Checkout: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-background">
-            <TopHeader title="Checkout" />
+            <TopHeader title="Checkout"/>
 
             <div className="p-4 space-y-6 pb-32">
                 {/* Delivery Address */}
                 <div className="bg-surface rounded-xl p-4">
                     <h3 className="font-semibold text-secondary-900 mb-3">Delivery Address</h3>
                     <div className="flex items-start justify-between">
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                             <p className="font-medium text-secondary-900">
                                 {deliveryAddress.label} {deliveryAddress.name && `• ${deliveryAddress.name}`}
                             </p>
-                            <p className="text-sm text-secondary-600 mt-1">
+                            <p className="text-sm text-secondary-600 mt-1 break-words">
                                 {deliveryAddress.address}
                             </p>
                             <p className="text-sm text-secondary-600">
@@ -90,6 +130,7 @@ const Checkout: React.FC = () => {
                             variant="secondary"
                             size="sm"
                             onClick={() => navigate('/addresses', { state: { from: 'checkout' } })}
+                            className="flex-shrink-0 ml-3"
                         >
                             Change
                         </Button>
@@ -106,6 +147,9 @@ const Checkout: React.FC = () => {
                             src={restaurant.images[0]}
                             alt={restaurant.name}
                             className="w-12 h-12 rounded-lg object-cover"
+                            onError={(e) => {
+                                e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' fill='%23f3f4f6'/%3E%3Ctext x='24' y='24' font-family='Arial, sans-serif' font-size='20' fill='%23d1d5db' text-anchor='middle' dominant-baseline='middle'%3E🏪%3C/text%3E%3C/svg%3E";
+                            }}
                         />
                         <div>
                             <h4 className="font-medium text-secondary-900">{restaurant.name}</h4>
@@ -178,7 +222,7 @@ const Checkout: React.FC = () => {
                                 }`}
                             >
                                 <div className="flex items-center space-x-3">
-                                    <method.icon className="h-5 w-5 text-secondary-600" />
+                                    <method.icon className="h-5 w-5 text-secondary-600"/>
                                     <span className="font-medium text-secondary-900">{method.label}</span>
                                     {!method.available && (
                                         <span className="text-xs text-secondary-500">(Coming Soon)</span>
