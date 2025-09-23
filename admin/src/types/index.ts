@@ -225,3 +225,23 @@ export interface DashboardState {
     loading: boolean;
     error: string | null;
 }
+
+export const VEHICLE_TYPES = {
+    BIKE: 'bike',
+    BICYCLE: 'bicycle',
+    CAR: 'car'
+} as const;
+
+export const PAYMENT_METHODS = {
+    CASH: 'cash',
+    CARD: 'card',
+    ONLINE: 'online',
+    WALLET: 'wallet'
+} as const;
+
+export const KYC_DOCUMENT_TYPES = {
+    AADHAR: 'aadhar',
+    LICENSE: 'license',
+    PAN: 'pan',
+    PHOTO: 'photo'
+} as const;

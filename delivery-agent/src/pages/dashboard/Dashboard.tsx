@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Layout } from '../../components/layout/Layout';
-import { StatsCards } from '../../components/features/dashboard/StatsCards';
-import { EarningsChart } from '../../components/features/dashboard/EarningsChart';
-import { AvailableOrders } from '../../components/features/dashboard/AvailableOrders';
+// import { StatsCards } from '../../components/features/dashboard/StatsCards';
+// import { EarningsChart } from '../../components/features/dashboard/EarningsChart';
+// import { AvailableOrders } from '../../components/features/dashboard/AvailableOrders';
 import { RecentDeliveries } from '../../components/features/dashboard/RecentDeliveries';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { useAuth } from '../../hooks/useAuth';
@@ -97,18 +97,18 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* Stats Cards */}
-                <StatsCards stats={stats} loading={loading} />
+                {/*<StatsCards stats={stats} loading={loading} />*/}
 
                 {/* Earnings Chart */}
-                <EarningsChart data={earnings} loading={loading} />
+                {/*<EarningsChart data={earnings} loading={loading} />*/}
 
                 {/* Available Orders & Recent Deliveries */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <AvailableOrders
+                    {/*<AvailableOrders
                         orders={availableOrders}
                         onAcceptOrder={handleAcceptOrder}
                         loading={loading}
-                    />
+                    />*/}
                     <RecentDeliveries
                         orders={recentOrders}
                         onStatusUpdate={handleStatusUpdate}
