@@ -232,7 +232,7 @@ class RestaurantService {
 
                 // Check if restaurant matches search
                 if (
-                    restaurantData.name?.toLowerCase().includes(query) ||
+                    restaurantData.businessName?.toLowerCase().includes(query) ||
                     restaurantData.cuisineTypes?.some((cuisine: string) => cuisine.toLowerCase().includes(query))
                 ) {
                     const restaurant = await this.getRestaurantDetails(restaurantDoc.id);
@@ -301,7 +301,7 @@ class RestaurantService {
 
     private isRestaurantOpen(operatingHours?: any): boolean {
         if (!operatingHours) return true;
-        return operatingHours.isOpen || true;
+        return operatingHours.isOpen;
     }
 
     private timeStringToMinutes(timeString: string): number {

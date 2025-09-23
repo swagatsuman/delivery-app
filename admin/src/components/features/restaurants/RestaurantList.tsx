@@ -29,10 +29,12 @@ export const RestaurantList: React.FC<RestaurantListProps> = ({
                         <div className="font-medium text-secondary-900">
                             {record.restaurantDetails?.businessName || 'Business Name Not Set'}
                         </div>
-                        <div className="text-sm text-secondary-500 flex items-center">
-                            <Mail className="h-3 w-3 mr-1"/>
-                            {record.email}
-                        </div>
+                        {record.restaurantDetails?.address && (
+                            <div className="text-xs text-secondary-400 flex items-center">
+                                <MapPin className="h-3 w-3 mr-1"/>
+                                {record.restaurantDetails.address.city}, {record.restaurantDetails.address.state}
+                            </div>
+                        )}
                         {record.restaurantDetails?.gstin && (
                             <div className="text-xs text-secondary-400">
                                 GSTIN: {record.restaurantDetails.gstin}
@@ -54,12 +56,10 @@ export const RestaurantList: React.FC<RestaurantListProps> = ({
                             {record.phone}
                         </div>
                     )}
-                    {record.restaurantDetails?.address && (
-                        <div className="text-xs text-secondary-400 flex items-center">
-                            <MapPin className="h-3 w-3 mr-1"/>
-                            {record.restaurantDetails.address.city}, {record.restaurantDetails.address.state}
-                        </div>
-                    )}
+                    <div className="text-sm text-secondary-500 flex items-center">
+                        <Mail className="h-3 w-3 mr-1"/>
+                        {record.email}
+                    </div>
                 </div>
             )
         },
@@ -77,20 +77,6 @@ export const RestaurantList: React.FC<RestaurantListProps> = ({
                     >
                         {record.status}
                     </Badge>
-                    {record.restaurantDetails && (
-                        <div className="text-xs">
-                            {record.restaurantDetails.isActive ? (
-                                <span className="text-success-600">● Restaurant Active</span>
-                            ) : (
-                                <span className="text-error-600">● Restaurant Inactive</span>
-                            )}
-                        </div>
-                    )}
-                    {record.restaurantDetails?.operatingHours?.isOpen && (
-                        <div className="text-xs text-success-600">
-                            Currently Open
-                        </div>
-                    )}
                 </div>
             )
         },

@@ -21,14 +21,11 @@ import {
     Building,
     Star,
     Clock,
-    Truck,
-    IndianRupee,
     Check,
     X,
     Ban,
     AlertCircle,
     FileText,
-    Globe
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -155,17 +152,15 @@ const RestaurantDetail: React.FC = () => {
                                         {restaurant.status.toUpperCase()}
                                     </Badge>
 
-                                    {details && (
+                                    {/*{details && (
                                         <Badge variant={details.isActive ? 'success' : 'error'} size="md">
                                             {details.isActive ? 'Restaurant Active' : 'Restaurant Inactive'}
                                         </Badge>
-                                    )}
+                                    )}*/}
 
-                                    {details?.operatingHours?.isOpen && (
-                                        <Badge variant="info" size="md">
-                                            Currently Open
-                                        </Badge>
-                                    )}
+                                    <Badge variant={details?.operatingHours?.isOpen ? 'info' : 'error'} size="md">
+                                        Currently {details?.operatingHours?.isOpen ? 'Open' : 'Closed'}
+                                    </Badge>
                                 </div>
                             </div>
                         </div>
