@@ -7,7 +7,7 @@ import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Textarea';
 import { useAuth } from '../../hooks/useAuth';
 import { useAppDispatch } from '../../hooks/useAppDispatch';
-import { updateRestaurantProfile } from '../../store/slices/authSlice';
+import { updateEstablishmentProfile } from '../../store/slices/authSlice';
 import { validateEmail, validatePhone, validateGSTIN } from '../../utils/helpers';
 import { CUISINE_TYPES } from '../../utils/constants';
 import { Save, Upload, MapPin, Clock, Star } from 'lucide-react';
@@ -88,7 +88,7 @@ const Profile: React.FC = () => {
                 }
             };
 
-            await dispatch(updateRestaurantProfile(profileData)).unwrap();
+            await dispatch(updateEstablishmentProfile(profileData)).unwrap();
             toast.success('Profile updated successfully');
         } catch (error: any) {
             toast.error(error.message || 'Failed to update profile');
