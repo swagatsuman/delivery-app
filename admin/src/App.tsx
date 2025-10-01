@@ -6,9 +6,10 @@ import { Loading } from './components/ui/Loading';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/auth/Login'));
+const SignUp = lazy(() => import('./pages/auth/SignUp'));
 const Dashboard = lazy(() => import('./pages/dashboard/Dashboard'));
-const Restaurants = lazy(() => import('./pages/restaurants/Restaurants'));
-const RestaurantDetail = lazy(() => import('./pages/restaurants/RestaurantDetail'));
+const Establishments = lazy(() => import('./pages/establishments/Establishments'));
+const EstablishmentDetail = lazy(() => import('./pages/establishments/EstablishmentDetail'));
 const DeliveryAgents = lazy(() => import('./pages/deliveryAgents/DeliveryAgents.tsx'));
 const DeliveryAgentDetail = lazy(() => import('./pages/deliveryAgents/DeliveryAgentDetail.tsx'));
 // const Users = lazy(() => import('./pages/users/Users'));
@@ -18,11 +19,12 @@ const DeliveryAgentDetail = lazy(() => import('./pages/deliveryAgents/DeliveryAg
 function App() {
     return (
         <Router>
-            <div className="min-h-screen bg-background">
+            <div className="bg-background">
                 <Suspense fallback={<Loading fullScreen/>}>
                     <Routes>
                         {/* Public Routes */}
                         <Route path="/login" element={<Login/>}/>
+                        <Route path="/signup" element={<SignUp/>}/>
 
                         {/* Protected Routes */}
                         <Route path="/dashboard" element={
@@ -31,15 +33,15 @@ function App() {
                             </ProtectedRoute>
                         }/>
 
-                        <Route path="/restaurants" element={
+                        <Route path="/establishments" element={
                             <ProtectedRoute>
-                                <Restaurants/>
+                                <Establishments/>
                             </ProtectedRoute>
                         }/>
 
-                        <Route path="/restaurants/:id" element={
+                        <Route path="/establishments/:id" element={
                             <ProtectedRoute>
-                                <RestaurantDetail/>
+                                <EstablishmentDetail/>
                             </ProtectedRoute>
                         }/>
 

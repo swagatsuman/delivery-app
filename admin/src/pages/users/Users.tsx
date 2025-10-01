@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { Icon } from '../../components/ui/Icon';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { Table } from '../../components/ui/Table';
@@ -132,10 +133,10 @@ const Users: React.FC = () => {
             title: 'Actions',
             render: (_, record: User) => (
                 <div className="flex items-center space-x-2">
-                    <Button
+                    <Icon
+                        icon={<Eye />}
                         size="sm"
                         variant="ghost"
-                        icon={<Eye className="h-4 w-4" />}
                         onClick={() => handleViewDetails(record)}
                     />
 

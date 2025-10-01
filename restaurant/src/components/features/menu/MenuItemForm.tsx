@@ -7,7 +7,10 @@ import { Textarea } from '../../ui/Textarea';
 import { Toggle } from '../../ui/Toggle';
 import type { MenuItem } from '../../../types';
 import { FOOD_TYPES, SPICE_LEVELS } from '../../../utils/constants';
-import { Upload, X } from 'lucide-react';
+import { Upload, X, Loader2 } from 'lucide-react';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { storage } from '../../../config/firebase';
+import toast from 'react-hot-toast';
 
 interface MenuItemFormData {
     name: string;
@@ -45,8 +48,9 @@ export const MenuItemForm: React.FC<MenuItemFormProps> = ({
                                                               categoryId,
                                                               loading
                                                           }) => {
-    const [images, setImages] = useState<string[]>(menuItem?.images || []);
+    const [image, setImage] = useState<string>(menuItem?.images?.[0] || '');
     const [dragOver, setDragOver] = useState(false);
+    const [uploading, setUploading] = useState(false);
 
     const {
         register,
@@ -96,7 +100,7 @@ export const MenuItemForm: React.FC<MenuItemFormProps> = ({
                 carbs: menuItem.nutritionInfo.carbs,
                 fat: menuItem.nutritionInfo.fat
             });
-            setImages(menuItem.images);
+            setImage(menuItem.images?.[0] || '');
         } else {
             reset({
                 name: '',
@@ -116,12 +120,69 @@ export const MenuItemForm: React.FC<MenuItemFormProps> = ({
                 carbs: 0,
                 fat: 0
             });
-            setImages([]);
+            setImage('');
         }
     }, [menuItem, reset]);
 
     const isAvailable = watch('isAvailable');
     const isRecommended = watch('isRecommended');
+
+    // Compress image to reduce file size
+    const compressImage = (file: File): Promise<File> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target?.result as string;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    // Set max dimensions
+                    const MAX_WIDTH = 1200;
+                    const MAX_HEIGHT = 1200;
+
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx?.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob(
+                        (blob) => {
+                            if (blob) {
+                                const compressedFile = new File([blob], file.name, {
+                                    type: 'image/jpeg',
+                                    lastModified: Date.now(),
+                                });
+                                resolve(compressedFile);
+                            } else {
+                                reject(new Error('Canvas to Blob conversion failed'));
+                            }
+                        },
+                        'image/jpeg',
+                        0.85 // Quality setting
+                    );
+                };
+                img.onerror = reject;
+            };
+            reader.onerror = reject;
+        });
+    };
 
     const handleFormSubmit = (data: MenuItemFormData) => {
         const formattedData = {
@@ -136,25 +197,85 @@ export const MenuItemForm: React.FC<MenuItemFormProps> = ({
                 carbs: data.carbs,
                 fat: data.fat
             },
-            images
+            images: image ? [image] : []
         };
         onSubmit(formattedData);
     };
 
-    const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const files = event.target.files;
-        if (files) {
-            // In a real app, upload to Firebase Storage and get URLs
-            // For now, we'll use placeholder URLs
-            const newImages = Array.from(files).map((file, index) =>
-                `https://via.placeholder.com/300x200?text=Image+${images.length + index + 1}`
-            );
-            setImages(prev => [...prev, ...newImages]);
+    const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please select a valid image file');
+            return;
+        }
+
+        // Validate file size (max 10MB before compression)
+        if (file.size > 10 * 1024 * 1024) {
+            toast.error('Image size must be less than 10MB');
+            return;
+        }
+
+        try {
+            setUploading(true);
+
+            // Compress image
+            const compressedFile = await compressImage(file);
+
+            // Show file size reduction
+            const originalSizeKB = (file.size / 1024).toFixed(2);
+            const compressedSizeKB = (compressedFile.size / 1024).toFixed(2);
+            console.log(`Image compressed: ${originalSizeKB}KB → ${compressedSizeKB}KB`);
+
+            // Create a unique filename
+            const timestamp = Date.now();
+            const filename = `${timestamp}_${file.name.replace(/\s+/g, '_')}`;
+            const storageRef = ref(storage, `menus/${filename}`);
+
+            // Upload to Firebase Storage
+            await uploadBytes(storageRef, compressedFile);
+
+            // Get download URL
+            const downloadURL = await getDownloadURL(storageRef);
+
+            setImage(downloadURL);
+            toast.success(`Image uploaded successfully (${compressedSizeKB}KB)`);
+        } catch (error: any) {
+            console.error('Error uploading image:', error);
+            toast.error(error.message || 'Failed to upload image');
+        } finally {
+            setUploading(false);
         }
     };
 
-    const removeImage = (index: number) => {
-        setImages(prev => prev.filter((_, i) => i !== index));
+    const removeImage = async () => {
+        if (!image) return;
+
+        try {
+            // Extract the file path from the Firebase Storage URL
+            // URL format: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{path}?alt=media&token={token}
+            const imageUrl = new URL(image);
+            const pathMatch = imageUrl.pathname.match(/\/o\/(.+?)(\?|$)/);
+
+            if (pathMatch && pathMatch[1]) {
+                const filePath = decodeURIComponent(pathMatch[1]);
+                const storageRef = ref(storage, filePath);
+
+                // Delete from Firebase Storage
+                await deleteObject(storageRef);
+                console.log('Image deleted from storage:', filePath);
+            }
+        } catch (error: any) {
+            console.error('Error deleting image from storage:', error);
+            // Don't show error to user if it's already deleted or doesn't exist
+            if (!error.code?.includes('object-not-found')) {
+                toast.error('Failed to delete image from storage');
+            }
+        }
+
+        setImage('');
     };
 
     const handleDragOver = (e: React.DragEvent) => {
@@ -166,10 +287,21 @@ export const MenuItemForm: React.FC<MenuItemFormProps> = ({
         setDragOver(false);
     };
 
-    const handleDrop = (e: React.DragEvent) => {
+    const handleDrop = async (e: React.DragEvent) => {
         e.preventDefault();
         setDragOver(false);
-        // Handle file drop logic here
+
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+
+        // Create a synthetic event to reuse handleImageUpload
+        const syntheticEvent = {
+            target: {
+                files: [file]
+            }
+        } as React.ChangeEvent<HTMLInputElement>;
+
+        await handleImageUpload(syntheticEvent);
     };
 
     return (
@@ -180,62 +312,69 @@ export const MenuItemForm: React.FC<MenuItemFormProps> = ({
             size="xl"
         >
             <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
-                {/* Images Section */}
+                {/* Image Section */}
                 <div>
                     <label className="block text-sm font-medium text-secondary-700 mb-2">
-                        Images
+                        Image
                     </label>
-                    <div className="space-y-4">
-                        {/* Image Upload Area */}
+
+                    {/* Show upload area only if no image is uploaded */}
+                    {!image && (
                         <div
                             className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
                                 dragOver
                                     ? 'border-primary-400 bg-primary-50'
                                     : 'border-secondary-300 hover:border-secondary-400'
-                            }`}
+                            } ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
                             onDragOver={handleDragOver}
                             onDragLeave={handleDragLeave}
                             onDrop={handleDrop}
                         >
-                            <Upload className="h-8 w-8 mx-auto text-secondary-400 mb-2" />
-                            <p className="text-sm text-secondary-600">
-                                Drag & drop images here, or{' '}
-                                <label className="text-primary-600 hover:text-primary-700 cursor-pointer">
-                                    browse
-                                    <input
-                                        type="file"
-                                        multiple
-                                        accept="image/*"
-                                        onChange={handleImageUpload}
-                                        className="hidden"
-                                    />
-                                </label>
-                            </p>
-                            <p className="text-xs text-secondary-500 mt-1">PNG, JPG, GIF up to 10MB</p>
+                            {uploading ? (
+                                <>
+                                    <Loader2 className="h-8 w-8 mx-auto text-primary-600 mb-2 animate-spin" />
+                                    <p className="text-sm text-secondary-600">Uploading and compressing image...</p>
+                                </>
+                            ) : (
+                                <>
+                                    <Upload className="h-8 w-8 mx-auto text-secondary-400 mb-2" />
+                                    <p className="text-sm text-secondary-600">
+                                        Drag & drop an image here, or{' '}
+                                        <label className="text-primary-600 hover:text-primary-700 cursor-pointer">
+                                            browse
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleImageUpload}
+                                                className="hidden"
+                                                disabled={uploading}
+                                            />
+                                        </label>
+                                    </p>
+                                    <p className="text-xs text-secondary-500 mt-1">PNG, JPG, GIF up to 10MB (will be compressed)</p>
+                                </>
+                            )}
                         </div>
+                    )}
 
-                        {/* Image Preview */}
-                        {images.length > 0 && (
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                {images.map((image, index) => (
-                                    <div key={index} className="relative group">
-                                        <img
-                                            src={image}
-                                            alt={`Menu item ${index + 1}`}
-                                            className="w-full h-24 object-cover rounded-lg border border-secondary-200"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => removeImage(index)}
-                                            className="absolute -top-2 -right-2 bg-error-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            <X className="h-3 w-3" />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    {/* Show image preview when uploaded */}
+                    {image && (
+                        <div className="relative inline-block">
+                            <img
+                                src={image}
+                                alt="Menu item"
+                                className="w-full max-w-md h-48 object-cover rounded-lg border border-secondary-200"
+                            />
+                            <button
+                                type="button"
+                                onClick={removeImage}
+                                className="absolute -top-2 -right-2 bg-error-500 text-white rounded-full p-2 hover:bg-error-600 transition-colors shadow-lg"
+                                title="Remove image"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

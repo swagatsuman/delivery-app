@@ -8,19 +8,23 @@ import { Clock, MapPin, Eye, Package, CheckCircle, XCircle } from 'lucide-react'
 interface OrderListProps {
     orders: Order[];
     onStatusUpdate?: (orderId: string, status: string) => void;
+    onAcceptOrder?: (orderId: string) => void;
     onViewDetails: (order: Order) => void;
     loading: boolean;
     emptyMessage: string;
     showActions?: boolean;
+    showAcceptButton?: boolean;
 }
 
 export const OrderList: React.FC<OrderListProps> = ({
                                                         orders,
                                                         onStatusUpdate,
+                                                        onAcceptOrder,
                                                         onViewDetails,
                                                         loading,
                                                         emptyMessage,
-                                                        showActions = true
+                                                        showActions = true,
+                                                        showAcceptButton = false
                                                     }) => {
     const getNextStatus = (currentStatus: string) => {
         const statusFlow = {
@@ -157,6 +161,15 @@ export const OrderList: React.FC<OrderListProps> = ({
                                 >
                                     View Details
                                 </Button>
+                                {showAcceptButton && onAcceptOrder && (
+                                    <Button
+                                        size="sm"
+                                        variant="primary"
+                                        onClick={() => onAcceptOrder(order.id)}
+                                    >
+                                        Accept Order
+                                    </Button>
+                                )}
                                 {showActions && nextStatus && onStatusUpdate && (
                                     <Button
                                         size="sm"

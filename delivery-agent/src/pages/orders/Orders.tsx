@@ -7,26 +7,68 @@ import { OrderList } from '../../components/features/orders/OrderList';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { useAuth } from '../../hooks/useAuth';
 import {
+    fetchAvailableOrders,
     fetchAssignedOrders,
     fetchCompletedOrders,
+    acceptOrder,
     updateOrderStatus,
     setFilters
 } from '../../store/slices/orderSlice';
 import type { Order, OrderFilters } from '../../types';
-import { Search, Filter, RefreshCw, MapPin } from 'lucide-react';
+import { Search, Filter, RefreshCw, MapPin, Navigation } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Orders: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { assignedOrders, completedOrders, loading, filters } = useAppSelector(state => state.orders);
+    const { availableOrders, assignedOrders, completedOrders, loading, filters } = useAppSelector(state => state.orders);
 
-    const [activeTab, setActiveTab] = useState<'assigned' | 'completed'>('assigned');
+    const [activeTab, setActiveTab] = useState<'available' | 'assigned' | 'completed'>('available');
     const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
+        // Get current location and update it
+        const updateCurrentLocation = () => {
+            if (navigator.geolocation && user?.uid) {
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        const currentLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+
+                        console.log('Current location obtained:', currentLocation);
+
+                        // Update location in database
+                        try {
+                            const { authService } = await import('../../services/authService');
+                            await authService.updateLocation(currentLocation);
+                            console.log('Location updated in database');
+                        } catch (error) {
+                            console.error('Failed to update location:', error);
+                        }
+
+                        // Fetch available orders with current location
+                        if (user?.deliveryAgentDetails?.isAvailable) {
+                            dispatch(fetchAvailableOrders(currentLocation));
+                        }
+                    },
+                    (error) => {
+                        console.error('Error getting location:', error);
+                        // Fallback to stored location if available
+                        if (user?.deliveryAgentDetails?.currentLocation) {
+                            if (user?.deliveryAgentDetails?.isAvailable) {
+                                dispatch(fetchAvailableOrders(user.deliveryAgentDetails.currentLocation));
+                            }
+                        }
+                    }
+                );
+            }
+        };
+
         if (user?.uid) {
+            updateCurrentLocation();
             dispatch(fetchAssignedOrders(user.uid));
             dispatch(fetchCompletedOrders({ agentId: user.uid, filters }));
         }
@@ -55,14 +97,44 @@ const Orders: React.FC = () => {
         navigate(`/orders/${order.id}`);
     };
 
+    const handleAcceptOrder = async (orderId: string) => {
+        if (!user?.uid) return;
+
+        // Check if agent already has an active order
+        if (assignedOrders.length > 0) {
+            toast.error('You already have an active order. Complete it before accepting a new one.');
+            return;
+        }
+
+        try {
+            await dispatch(acceptOrder({ orderId, agentId: user.uid })).unwrap();
+            toast.success('Order accepted successfully!');
+
+            // Refresh orders
+            if (user.deliveryAgentDetails?.currentLocation) {
+                dispatch(fetchAvailableOrders(user.deliveryAgentDetails.currentLocation));
+            }
+            dispatch(fetchAssignedOrders(user.uid));
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to accept order');
+        }
+    };
+
     const handleRefresh = async () => {
         setRefreshing(true);
         try {
-            if (user?.uid) {
-                await Promise.all([
+            if (user?.uid && user?.deliveryAgentDetails?.currentLocation) {
+                const promises = [
                     dispatch(fetchAssignedOrders(user.uid)).unwrap(),
                     dispatch(fetchCompletedOrders({ agentId: user.uid, filters })).unwrap()
-                ]);
+                ];
+
+                if (user.deliveryAgentDetails.isAvailable) {
+                    promises.push(dispatch(fetchAvailableOrders(user.deliveryAgentDetails.currentLocation)).unwrap());
+                }
+
+                await Promise.all(promises);
+                toast.success('Orders refreshed');
             }
         } catch (error) {
             // Error handled by global error handler
@@ -72,15 +144,16 @@ const Orders: React.FC = () => {
     };
 
     const getOrderStats = () => {
+        const available = availableOrders.length;
         const assigned = assignedOrders.length;
         const completed = completedOrders.filter(o => o.status === 'delivered').length;
         const cancelled = completedOrders.filter(o => o.status === 'cancelled').length;
 
-        return { assigned, completed, cancelled, total: assigned + completedOrders.length };
+        return { available, assigned, completed, cancelled, total: assigned + completedOrders.length };
     };
 
     const stats = getOrderStats();
-    const currentOrders = activeTab === 'assigned' ? assignedOrders : completedOrders;
+    const currentOrders = activeTab === 'available' ? availableOrders : activeTab === 'assigned' ? assignedOrders : completedOrders;
 
     return (
         <Layout
@@ -109,6 +182,18 @@ const Orders: React.FC = () => {
             <div className="p-6 space-y-6">
                 {/* Order Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <Card padding="md">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-secondary-600">Available</p>
+                                <p className="text-2xl font-bold text-blue-600">{stats.available}</p>
+                            </div>
+                            <div className="p-3 bg-blue-100 rounded-lg">
+                                <Navigation className="h-6 w-6 text-blue-600" />
+                            </div>
+                        </div>
+                    </Card>
+
                     <Card padding="md">
                         <div className="flex items-center justify-between">
                             <div>
@@ -163,6 +248,16 @@ const Orders: React.FC = () => {
                     <div className="border-b border-secondary-200">
                         <nav className="flex space-x-8 px-6">
                             <button
+                                onClick={() => setActiveTab('available')}
+                                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                                    activeTab === 'available'
+                                        ? 'border-primary-500 text-primary-600'
+                                        : 'border-transparent text-secondary-500 hover:text-secondary-700'
+                                }`}
+                            >
+                                Available Orders ({stats.available})
+                            </button>
+                            <button
                                 onClick={() => setActiveTab('assigned')}
                                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                                     activeTab === 'assigned'
@@ -170,7 +265,7 @@ const Orders: React.FC = () => {
                                         : 'border-transparent text-secondary-500 hover:text-secondary-700'
                                 }`}
                             >
-                                Assigned Orders ({stats.assigned})
+                                My Orders ({stats.assigned})
                             </button>
                             <button
                                 onClick={() => setActiveTab('completed')}
@@ -180,7 +275,7 @@ const Orders: React.FC = () => {
                                         : 'border-transparent text-secondary-500 hover:text-secondary-700'
                                 }`}
                             >
-                                Completed Orders ({completedOrders.length})
+                                History ({completedOrders.length})
                             </button>
                         </nav>
                     </div>
@@ -236,14 +331,20 @@ const Orders: React.FC = () => {
                         <OrderList
                             orders={currentOrders}
                             onStatusUpdate={handleStatusUpdate}
+                            onAcceptOrder={activeTab === 'available' ? handleAcceptOrder : undefined}
                             onViewDetails={handleViewDetails}
                             loading={loading}
                             emptyMessage={
-                                activeTab === 'assigned'
-                                    ? "No orders assigned. Go online to receive new orders!"
+                                activeTab === 'available'
+                                    ? user?.deliveryAgentDetails?.isAvailable
+                                        ? "No orders available nearby. Check back soon!"
+                                        : "Go online to see available orders"
+                                    : activeTab === 'assigned'
+                                    ? "No active orders"
                                     : "No completed orders yet"
                             }
                             showActions={activeTab === 'assigned'}
+                            showAcceptButton={activeTab === 'available'}
                         />
                     </div>
                 </Card>

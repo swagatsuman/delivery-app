@@ -10,7 +10,7 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children, title, actions }) => {
     return (
-        <div className="flex h-screen bg-background">
+        <div className="flex bg-background">
             <Sidebar />
             <div className="flex-1 flex flex-col overflow-hidden">
                 <Header title={title} actions={actions} />

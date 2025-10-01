@@ -101,5 +101,5 @@ const restaurantSlice = createSlice({
     }
 });
 
-export const { clearError, clearSelectedRestaurant } = restaurantSlice.actions;
+export const {clearError, clearSelectedRestaurant} = restaurantSlice.actions;
 export default restaurantSlice.reducer;

@@ -13,10 +13,14 @@ class RestaurantService {
 
     async getNearbyRestaurants(coordinates: Coordinates, radiusKm: number = 10): Promise<Restaurant[]> {
         try {
-            // For now, get all restaurants and filter by distance client-side
+            // For now, get all establishments and filter by distance client-side
             // In production, you'd use Firebase Extensions for geoqueries
-            const restaurantsRef = collection(db, 'restaurants');
-            const q = query(restaurantsRef, where('isActive', '==', true));
+            const establishmentsRef = collection(db, 'establishments');
+            const q = query(
+                establishmentsRef,
+                where('isActive', '==', true),
+                where('establishmentType', '==', 'restaurant')
+            );
             const snapshot = await getDocs(q);
 
             const restaurants: Restaurant[] = [];
@@ -101,13 +105,18 @@ class RestaurantService {
 
     async getRestaurantDetails(restaurantId: string): Promise<Restaurant> {
         try {
-            const restaurantDoc = await getDoc(doc(db, 'restaurants', restaurantId));
+            const restaurantDoc = await getDoc(doc(db, 'establishments', restaurantId));
 
             if (!restaurantDoc.exists()) {
                 throw new Error('Restaurant not found');
             }
 
             const data = restaurantDoc.data();
+
+            // Verify it's a restaurant
+            if (data.establishmentType !== 'restaurant') {
+                throw new Error('Establishment is not a restaurant');
+            }
 
             return {
                 id: restaurantDoc.id,
@@ -152,7 +161,7 @@ class RestaurantService {
 
             // First, get all categories for this restaurant from the categories collection
             const categoriesRef = collection(db, 'categories');
-            const categoriesQuery = query(categoriesRef, where('restaurantId', '==', restaurantId));
+            const categoriesQuery = query(categoriesRef, where('establishmentId', '==', restaurantId));
             const categoriesSnapshot = await getDocs(categoriesQuery);
 
             console.log('Categories found:', categoriesSnapshot.size);
@@ -167,7 +176,7 @@ class RestaurantService {
                 const itemsRef = collection(db, 'menuItems');
                 const itemsQuery = query(
                     itemsRef,
-                    where('restaurantId', '==', restaurantId),
+                    where('establishmentId', '==', restaurantId),
                     where('categoryId', '==', categoryDoc.id)
                 );
                 const itemsSnapshot = await getDocs(itemsQuery);
@@ -218,11 +227,15 @@ class RestaurantService {
 
     async searchAll(searchQuery: string): Promise<SearchResults> {
         try {
-            const query = searchQuery.toLowerCase();
+            const searchTerm = searchQuery.toLowerCase();
 
-            // Search restaurants
-            const restaurantsRef = collection(db, 'restaurants');
-            const restaurantsSnapshot = await getDocs(restaurantsRef);
+            // Search establishments (restaurants only)
+            const establishmentsRef = collection(db, 'establishments');
+            const establishmentsQuery = query(
+                establishmentsRef,
+                where('establishmentType', '==', 'restaurant')
+            );
+            const restaurantsSnapshot = await getDocs(establishmentsQuery);
 
             const restaurants: Restaurant[] = [];
             const dishes: MenuItem[] = [];
@@ -232,8 +245,9 @@ class RestaurantService {
 
                 // Check if restaurant matches search
                 if (
-                    restaurantData.businessName?.toLowerCase().includes(query) ||
-                    restaurantData.cuisineTypes?.some((cuisine: string) => cuisine.toLowerCase().includes(query))
+                    restaurantData.businessName?.toLowerCase().includes(searchTerm) ||
+                    restaurantData.name?.toLowerCase().includes(searchTerm) ||
+                    restaurantData.cuisineTypes?.some((cuisine: string) => cuisine.toLowerCase().includes(searchTerm))
                 ) {
                     const restaurant = await this.getRestaurantDetails(restaurantDoc.id);
                     restaurants.push(restaurant);
@@ -241,7 +255,7 @@ class RestaurantService {
 
                 // Search menu items for this restaurant
                 const itemsRef = collection(db, 'menuItems');
-                const itemsQuery = query(itemsRef, where('restaurantId', '==', restaurantDoc.id));
+                const itemsQuery = query(itemsRef, where('establishmentId', '==', restaurantDoc.id));
                 const itemsSnapshot = await getDocs(itemsQuery);
 
                 itemsSnapshot.docs.forEach(itemDoc => {

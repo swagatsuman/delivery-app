@@ -28,27 +28,18 @@ export const deliveryAgentService = {
 
             let q;
 
-            // Build query based on whether we need status filter or not
+            // Build query - avoid compound index by not using orderBy with multiple where clauses
             if (filters.status !== 'all') {
                 q = query(
                     collection(db, 'users'),
                     where('role', '==', USER_ROLES.DELIVERY_AGENT),
-                    where('status', '==', filters.status),
-                    orderBy('createdAt', 'desc'),
-                    limit(pageLimit)
+                    where('status', '==', filters.status)
                 );
             } else {
                 q = query(
                     collection(db, 'users'),
-                    where('role', '==', USER_ROLES.DELIVERY_AGENT),
-                    orderBy('createdAt', 'desc'),
-                    limit(pageLimit)
+                    where('role', '==', USER_ROLES.DELIVERY_AGENT)
                 );
-            }
-
-            // Add pagination if provided
-            if (params?.lastDoc) {
-                q = query(q, startAfter(params.lastDoc));
             }
 
             console.log('Executing delivery agent query with filters:', filters);
@@ -59,9 +50,21 @@ export const deliveryAgentService = {
                 const data = doc.data();
                 return {
                     ...data,
-                    uid: doc.id
+                    uid: doc.id,
+                    createdAt: data.createdAt?.toDate() || new Date()
                 } as User;
             });
+
+            // Sort by createdAt client-side
+            deliveryAgentUsers.sort((a, b) => {
+                const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
+                const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
+                return dateB.getTime() - dateA.getTime();
+            });
+
+            // Apply pagination client-side
+            const startIndex = params?.lastDoc ? deliveryAgentUsers.findIndex(u => u.uid === params.lastDoc.id) + 1 : 0;
+            deliveryAgentUsers = deliveryAgentUsers.slice(startIndex, startIndex + pageLimit);
 
             // Fetch delivery agent details for each user
             const agentsWithDetails = await Promise.all(

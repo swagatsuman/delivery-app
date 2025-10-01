@@ -50,9 +50,9 @@ const Cart: React.FC = () => {
 
     if (items.length === 0) {
         return (
-            <div className="min-h-screen bg-background">
+            <div className="h-screen bg-background flex flex-col overflow-hidden">
                 {/* Header */}
-                <div className="sticky top-0 z-50 bg-surface border-b border-secondary-200">
+                <div className="bg-surface border-b border-secondary-200">
                     <div className="flex items-center p-4">
                         <button
                             onClick={handleBack}
@@ -130,8 +130,11 @@ const Cart: React.FC = () => {
                             />
                             <div className="flex-1">
                                 <h3 className="font-semibold text-secondary-900">{restaurant.name}</h3>
-                                <p className="text-sm text-secondary-600 break-words">
+                                <p className="text-sm text-secondary-600 break-words leading-relaxed">
                                     {restaurant.address.address}
+                                </p>
+                                <p className="text-sm text-secondary-600 mt-1">
+                                    {restaurant.address.city}, {restaurant.address.state} - {restaurant.address.pincode}
                                 </p>
                             </div>
                         </div>

@@ -8,7 +8,8 @@ import { GooglePlacesBusinessInput } from './GooglePlacesBusinessInput';
 import { useAppDispatch, useAppSelector } from '../../../hooks/useAppDispatch';
 import { signupUser, clearError } from '../../../store/slices/authSlice';
 import { validateEmail, validatePhone, validateGSTIN } from '../../../utils/helpers';
-import { CUISINE_TYPES } from '../../../utils/constants';
+import { ESTABLISHMENT_CONFIGS, getEstablishmentConfig } from '../../../utils/establishmentConfig';
+import type { EstablishmentType } from '../../../types';
 
 interface SignupFormData {
     ownerName: string;
@@ -16,13 +17,14 @@ interface SignupFormData {
     phone: string;
     password: string;
     confirmPassword: string;
+    establishmentType: EstablishmentType;
     businessName: string;
     gstin: string;
     street: string;
     city: string;
     state: string;
     pincode: string;
-    cuisineTypes: string[];
+    serviceTypes: string[];
     description: string;
     estimatedDeliveryTime: number;
 }
@@ -31,7 +33,8 @@ export const SignupForm: React.FC = () => {
     const dispatch = useAppDispatch();
     const {loading, error} = useAppSelector(state => state.auth);
     const [step, setStep] = useState(1);
-    const [selectedCuisines, setSelectedCuisines] = useState<string[]>([]);
+    const [selectedServiceTypes, setSelectedServiceTypes] = useState<string[]>([]);
+    const [selectedEstablishmentType, setSelectedEstablishmentType] = useState<EstablishmentType>('restaurant');
     const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
 
     const {
@@ -56,10 +59,11 @@ export const SignupForm: React.FC = () => {
 
         const signupData = {
             ...data,
-            cuisineTypes: selectedCuisines,
+            establishmentType: selectedEstablishmentType,
+            serviceTypes: selectedServiceTypes,
             address: {
                 id: 'primary',
-                label: 'Restaurant Address',
+                label: 'Business Address',
                 street: data.street,
                 city: data.city,
                 state: data.state,
@@ -72,9 +76,13 @@ export const SignupForm: React.FC = () => {
     };
 
     const handleNext = async () => {
-        const isValid = await trigger(['ownerName', 'email', 'phone', 'password', 'confirmPassword']);
-        if (isValid) {
-            setStep(2);
+        if (step === 1) {
+            const isValid = await trigger(['ownerName', 'email', 'phone', 'password', 'confirmPassword']);
+            if (isValid) {
+                setStep(2);
+            }
+        } else if (step === 2) {
+            setStep(3);
         }
     };
 
@@ -101,12 +109,17 @@ export const SignupForm: React.FC = () => {
         console.log('Address auto-filled:', place);
     };
 
-    const toggleCuisine = (cuisine: string) => {
-        setSelectedCuisines(prev =>
-            prev.includes(cuisine)
-                ? prev.filter(c => c !== cuisine)
-                : [...prev, cuisine]
+    const toggleServiceType = (serviceType: string) => {
+        setSelectedServiceTypes(prev =>
+            prev.includes(serviceType)
+                ? prev.filter(c => c !== serviceType)
+                : [...prev, serviceType]
         );
+    };
+
+    const handleEstablishmentTypeChange = (type: EstablishmentType) => {
+        setSelectedEstablishmentType(type);
+        setSelectedServiceTypes([]); // Reset service types when changing establishment type
     };
 
     console.log(getValues('businessName'));
@@ -115,7 +128,7 @@ export const SignupForm: React.FC = () => {
         <div className="w-full">
             <div className="text-center mb-8">
                 <h1 className="text-3xl font-bold text-secondary-900">Join FoodEats</h1>
-                <p className="text-secondary-600 mt-2">Register your restaurant and start selling</p>
+                <p className="text-secondary-600 mt-2">Register your establishment and start selling</p>
             </div>
 
             {/* Step Indicator */}
@@ -131,6 +144,12 @@ export const SignupForm: React.FC = () => {
                         step >= 2 ? 'bg-primary-500 text-white' : 'bg-secondary-200 text-secondary-600'
                     }`}>
                         2
+                    </div>
+                    <div className={`w-12 h-1 ${step >= 3 ? 'bg-primary-500' : 'bg-secondary-200'}`}/>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        step >= 3 ? 'bg-primary-500 text-white' : 'bg-secondary-200 text-secondary-600'
+                    }`}>
+                        3
                     </div>
                 </div>
             </div>
@@ -181,7 +200,7 @@ export const SignupForm: React.FC = () => {
                             icon={<Lock className="h-4 w-4"/>}
                             {...register('password', {
                                 required: 'Password is required',
-                                minLength: {value: 8, message: 'Password must be at least 8 characters'}
+                                minLength: {value: 6, message: 'Password must be at least 6 characters'}
                             })}
                             error={errors.password?.message}
                         />
@@ -206,8 +225,72 @@ export const SignupForm: React.FC = () => {
                 {step === 2 && (
                     <>
                         <div className="text-center mb-6">
-                            <h3 className="text-lg font-semibold text-secondary-900">Restaurant Details</h3>
-                            <p className="text-sm text-secondary-600">Tell us about your restaurant</p>
+                            <h3 className="text-lg font-semibold text-secondary-900">Business Type</h3>
+                            <p className="text-sm text-secondary-600">What type of business are you running?</p>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-secondary-700 mb-4">
+                                Select Your Business Type
+                            </label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {Object.entries(ESTABLISHMENT_CONFIGS).map(([type, config]) => {
+                                    const IconComponent = config.icon;
+                                    return (
+                                        <button
+                                            key={type}
+                                            type="button"
+                                            onClick={() => handleEstablishmentTypeChange(type as EstablishmentType)}
+                                            className={`p-4 text-left rounded-xl border-2 transition-all hover:shadow-md ${
+                                                selectedEstablishmentType === type
+                                                    ? 'border-primary-500 bg-primary-50'
+                                                    : 'border-secondary-200 bg-white hover:border-secondary-300'
+                                            }`}
+                                        >
+                                            <div className="flex items-start space-x-3">
+                                                <div className={`p-2 rounded-lg ${config.color}`}>
+                                                    <IconComponent className="h-6 w-6" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h4 className="font-semibold text-secondary-900 mb-1">
+                                                        {config.label}
+                                                    </h4>
+                                                    <p className="text-sm text-secondary-600">
+                                                        {config.description}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        <div className="flex space-x-4">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                className="flex-1"
+                                onClick={() => setStep(1)}
+                            >
+                                Back
+                            </Button>
+                            <Button
+                                type="button"
+                                className="flex-1"
+                                onClick={() => setStep(3)}
+                            >
+                                Next Step
+                            </Button>
+                        </div>
+                    </>
+                )}
+
+                {step === 3 && (
+                    <>
+                        <div className="text-center mb-6">
+                            <h3 className="text-lg font-semibold text-secondary-900">Business Details</h3>
+                            <p className="text-sm text-secondary-600">Tell us about your {getEstablishmentConfig(selectedEstablishmentType).label.toLowerCase()}</p>
                         </div>
 
                         {/* Google Places Business Search */}
@@ -244,7 +327,7 @@ export const SignupForm: React.FC = () => {
                         <div className="space-y-4">
                             <h4 className="text-sm font-medium text-secondary-900 flex items-center">
                                 <MapPin className="h-4 w-4 mr-2"/>
-                                Restaurant Address
+                                Business Address
                                 {coordinates && (
                                     <span className="ml-2 text-xs text-success-600">
                                         ✓ Location verified
@@ -299,31 +382,31 @@ export const SignupForm: React.FC = () => {
 
                         <div>
                             <label className="block text-sm font-medium text-secondary-700 mb-3">
-                                Cuisine Types (Select all that apply)
+                                {selectedEstablishmentType === 'restaurant' ? 'Cuisine Types' : 'Service Types'} (Select all that apply)
                             </label>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                {CUISINE_TYPES.map((cuisine) => (
+                                {getEstablishmentConfig(selectedEstablishmentType).defaultServiceTypes.map((serviceType) => (
                                     <button
-                                        key={cuisine}
+                                        key={serviceType}
                                         type="button"
-                                        onClick={() => toggleCuisine(cuisine)}
+                                        onClick={() => toggleServiceType(serviceType)}
                                         className={`p-2 text-sm rounded-lg border transition-colors ${
-                                            selectedCuisines.includes(cuisine)
+                                            selectedServiceTypes.includes(serviceType)
                                                 ? 'bg-primary-50 border-primary-200 text-primary-700'
                                                 : 'bg-white border-secondary-200 text-secondary-700 hover:bg-secondary-50'
                                         }`}
                                     >
-                                        {cuisine}
+                                        {serviceType}
                                     </button>
                                 ))}
                             </div>
                         </div>
 
                         <Textarea
-                            label="Restaurant Description"
+                            label="Business Description"
                             rows={3}
                             {...register('description')}
-                            placeholder="Brief description of your restaurant and specialties..."
+                            placeholder={`Brief description of your ${getEstablishmentConfig(selectedEstablishmentType).label.toLowerCase()} and specialties...`}
                         />
 
                         {error && (
@@ -337,7 +420,7 @@ export const SignupForm: React.FC = () => {
                                 type="button"
                                 variant="secondary"
                                 className="flex-1"
-                                onClick={() => setStep(1)}
+                                onClick={() => setStep(2)}
                             >
                                 Back
                             </Button>
@@ -347,7 +430,7 @@ export const SignupForm: React.FC = () => {
                                 loading={loading}
                                 disabled={!coordinates}
                             >
-                                Create Restaurant Account
+                                Create Business Account
                             </Button>
                         </div>
 

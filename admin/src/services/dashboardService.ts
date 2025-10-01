@@ -7,8 +7,8 @@ import {
     limit
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import type { DashboardStats } from '../types';
-import { USER_ROLES, USER_STATUS } from '../utils/constants';
+import type { DashboardStats, EstablishmentType } from '../types';
+import { USER_ROLES, USER_STATUS, ESTABLISHMENT_TYPES, ESTABLISHMENT_STATUS } from '../utils/constants';
 
 export const dashboardService = {
     async getDashboardStats(): Promise<DashboardStats> {
@@ -17,11 +17,11 @@ export const dashboardService = {
             const usersSnapshot = await getDocs(collection(db, 'users'));
             const users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            // Calculate restaurant stats from users collection
-            const restaurantUsers = users.filter(user => user.role === USER_ROLES.RESTAURANT);
-            const totalRestaurants = restaurantUsers.length;
-            const pendingRestaurants = restaurantUsers.filter(r => r.status === USER_STATUS.PENDING).length;
-            const activeRestaurants = restaurantUsers.filter(r => r.status === USER_STATUS.ACTIVE).length;
+            // Calculate establishment stats from users collection
+            const establishmentUsers = users.filter(user => user.role === USER_ROLES.ESTABLISHMENT);
+            const totalEstablishments = establishmentUsers.length;
+            const pendingEstablishments = establishmentUsers.filter(r => r.status === USER_STATUS.PENDING).length;
+            const approvedEstablishments = establishmentUsers.filter(r => r.status === USER_STATUS.ACTIVE).length;
 
             // Calculate customer stats
             const totalCustomers = users.filter(user => user.role === USER_ROLES.CUSTOMER).length;
@@ -31,23 +31,40 @@ export const dashboardService = {
             const totalDeliveryAgents = deliveryAgents.length;
             const pendingDeliveryAgents = deliveryAgents.filter(d => d.status === USER_STATUS.PENDING).length;
 
-            // Fetch restaurant collection data for business stats
-            const restaurantsSnapshot = await getDocs(collection(db, 'restaurants'));
-            const restaurants = restaurantsSnapshot.docs.map(doc => doc.data());
+            // Fetch establishment collection data for business stats
+            const establishmentsSnapshot = await getDocs(collection(db, 'establishments'));
+            const establishments = establishmentsSnapshot.docs.map(doc => doc.data());
 
             // Calculate aggregated business stats
-            const totalRevenue = restaurants.reduce((sum, restaurant) => sum + (restaurant.revenue || 0), 0);
-            const totalOrders = restaurants.reduce((sum, restaurant) => sum + (restaurant.totalOrders || 0), 0);
+            const totalRevenue = establishments.reduce((sum, establishment) => sum + (establishment.revenue || 0), 0);
+            const totalOrders = establishments.reduce((sum, establishment) => sum + (establishment.totalOrders || 0), 0);
             const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+            // Calculate establishments by type
+            const establishmentsByType: Record<EstablishmentType, number> = {
+                restaurant: 0,
+                food_truck: 0,
+                grocery_shop: 0,
+                bakery: 0,
+                cafe: 0,
+                cloud_kitchen: 0
+            };
+
+            establishments.forEach(establishment => {
+                if (establishment.establishmentType && establishmentsByType.hasOwnProperty(establishment.establishmentType)) {
+                    establishmentsByType[establishment.establishmentType as EstablishmentType]++;
+                }
+            });
 
             // Today's stats (mock data for now - would need timestamps in orders)
             const todayOrders = 0;
             const todayRevenue = 0;
 
             return {
-                totalRestaurants,
-                pendingRestaurants,
-                activeRestaurants,
+                totalEstablishments,
+                pendingEstablishments,
+                approvedEstablishments,
+                establishmentsByType,
                 totalCustomers,
                 totalDeliveryAgents,
                 pendingDeliveryAgents,
@@ -78,42 +95,44 @@ export const dashboardService = {
                 type: 'user_registration'
             }));
 
-            // Fetch recent restaurant registrations with business names
-            const restaurantUsersQuery = query(
+            // Fetch recent establishment registrations with business names
+            const establishmentUsersQuery = query(
                 collection(db, 'users'),
-                where('role', '==', USER_ROLES.RESTAURANT),
+                where('role', '==', USER_ROLES.ESTABLISHMENT),
                 orderBy('createdAt', 'desc'),
                 limit(5)
             );
 
-            const restaurantUsersSnapshot = await getDocs(restaurantUsersQuery);
-            const recentRestaurantUsers = restaurantUsersSnapshot.docs.map(doc => doc.data());
+            const establishmentUsersSnapshot = await getDocs(establishmentUsersQuery);
+            const recentEstablishmentUsers = establishmentUsersSnapshot.docs.map(doc => doc.data());
 
-            // Get business names from restaurants collection
-            const restaurantActivities = await Promise.all(
-                recentRestaurantUsers.map(async (user) => {
+            // Get business names from establishments collection
+            const establishmentActivities = await Promise.all(
+                recentEstablishmentUsers.map(async (user) => {
                     try {
-                        const restaurantSnapshot = await getDocs(
-                            query(collection(db, 'restaurants'), where('ownerId', '==', user.uid))
+                        const establishmentSnapshot = await getDocs(
+                            query(collection(db, 'establishments'), where('ownerId', '==', user.uid))
                         );
-                        const restaurant = restaurantSnapshot.docs[0]?.data();
+                        const establishment = establishmentSnapshot.docs[0]?.data();
                         return {
                             ...user,
-                            type: 'restaurant_registration',
-                            businessName: restaurant?.businessName || 'Unknown Business'
+                            type: 'establishment_registration',
+                            businessName: establishment?.businessName || 'Unknown Business',
+                            establishmentType: establishment?.establishmentType || 'unknown'
                         };
                     } catch (error) {
                         return {
                             ...user,
-                            type: 'restaurant_registration',
-                            businessName: 'Unknown Business'
+                            type: 'establishment_registration',
+                            businessName: 'Unknown Business',
+                            establishmentType: 'unknown'
                         };
                     }
                 })
             );
 
             // Combine and sort all activities
-            const allActivities = [...recentUsers, ...restaurantActivities]
+            const allActivities = [...recentUsers, ...establishmentActivities]
                 .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                 .slice(0, 10);
 

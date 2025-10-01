@@ -26,7 +26,7 @@ const loadPersistedState = (): Partial<AuthState> => {
 const initialState: AuthState = {
     user: null,
     isAuthenticated: false,
-    loading: true, // Start with loading true to check auth state
+    loading: false, // Start with loading true to check auth state
     error: null,
     passwordResetSent: false,
     ...loadPersistedState()

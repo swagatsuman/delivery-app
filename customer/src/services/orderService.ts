@@ -39,6 +39,32 @@ class OrderService {
                 throw new Error('Pricing information is required');
             }
 
+            // Fetch restaurant details to get address and coordinates
+            const restaurantDocForAddress = await getDoc(doc(db, 'establishments', orderData.restaurantId));
+            if (!restaurantDocForAddress.exists()) {
+                throw new Error('Restaurant not found');
+            }
+            const restaurantDataForAddress = restaurantDocForAddress.data();
+            const restaurantAddress = restaurantDataForAddress.address || {};
+
+            // Calculate distance between restaurant and delivery address
+            const calculateDistance = (pos1: { lat: number; lng: number }, pos2: { lat: number; lng: number }): number => {
+                const R = 6371; // Radius of the Earth in km
+                const dLat = (pos2.lat - pos1.lat) * (Math.PI / 180);
+                const dLng = (pos2.lng - pos1.lng) * (Math.PI / 180);
+                const a =
+                    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(pos1.lat * (Math.PI / 180)) * Math.cos(pos2.lat * (Math.PI / 180)) *
+                    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                return R * c; // Distance in km
+            };
+
+            const distance = calculateDistance(
+                restaurantAddress.coordinates || { lat: 0, lng: 0 },
+                orderData.deliveryAddress.coordinates || { lat: 0, lng: 0 }
+            );
+
             // Helper function to remove undefined values but preserve Timestamps
             const cleanObject = (obj: any): any => {
                 if (obj === null || obj === undefined) return null;
@@ -59,8 +85,31 @@ class OrderService {
                 return cleaned;
             };
 
+            // Fetch user details for name and phone if not in delivery address
+            let customerName = orderData.deliveryAddress?.name || '';
+            let customerPhone = orderData.deliveryAddress?.phone || '';
+
+            if (!customerName || !customerPhone) {
+                try {
+                    const userDoc = await getDoc(doc(db, 'users', user.uid));
+                    if (userDoc.exists()) {
+                        const userData = userDoc.data();
+                        if (!customerName) {
+                            customerName = userData.name || user.displayName || 'Customer';
+                        }
+                        if (!customerPhone) {
+                            customerPhone = userData.phone || user.phoneNumber || '';
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching user details:', error);
+                }
+            }
+
             const rawOrderDoc = {
                 userId: user.uid,
+                customerName: customerName || 'Customer',
+                customerPhone: customerPhone || '',
                 restaurantId: orderData.restaurantId,
                 items: orderData.items.map((item: any) => {
                     const menuItem: any = {
@@ -107,10 +156,21 @@ class OrderService {
                     pincode: orderData.deliveryAddress.pincode,
                     coordinates: orderData.deliveryAddress.coordinates,
                     // Only add name if it exists
-                    ...(orderData.deliveryAddress.name && { name: orderData.deliveryAddress.name })
+                    ...(orderData.deliveryAddress.name && { name: orderData.deliveryAddress.name }),
+                    // Only add phone if it exists
+                    ...(orderData.deliveryAddress.phone && { phone: orderData.deliveryAddress.phone })
+                },
+                restaurantAddress: {
+                    address: restaurantAddress.address || '',
+                    street: restaurantAddress.street || restaurantAddress.address || '',
+                    city: restaurantAddress.city || '',
+                    state: restaurantAddress.state || '',
+                    pincode: restaurantAddress.pincode || '',
+                    coordinates: restaurantAddress.coordinates || { lat: 0, lng: 0 }
                 },
                 orderNumber: this.generateOrderNumber(),
                 status: 'placed',
+                distance: distance,
                 paymentMethod: orderData.paymentMethod || 'cash',
                 paymentStatus: 'pending',
                 estimatedDeliveryTime: orderData.estimatedDeliveryTime ? Timestamp.fromDate(orderData.estimatedDeliveryTime) : Timestamp.fromDate(new Date(Date.now() + 45 * 60 * 1000)),

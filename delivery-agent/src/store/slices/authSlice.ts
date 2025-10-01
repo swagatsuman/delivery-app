@@ -54,6 +54,10 @@ const authSlice = createSlice({
         updateAvailabilityStatus: (state, action: PayloadAction<boolean>) => {
             if (state.user?.deliveryAgentDetails) {
                 state.user.deliveryAgentDetails.isAvailable = action.payload;
+                state.user.deliveryAgentDetails.workingHours = {
+                    ...state.user.deliveryAgentDetails.workingHours,
+                    isOnline: action.payload
+                };
             }
         }
     },

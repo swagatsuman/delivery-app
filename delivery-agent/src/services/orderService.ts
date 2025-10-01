@@ -18,39 +18,110 @@ import type { Order, OrderFilters } from '../types';
 export const orderService = {
     async getAvailableOrders(agentLocation: { lat: number; lng: number }, maxDistance: number = 10): Promise<Order[]> {
         try {
-            // Get orders that are ready for pickup and not assigned
+            console.log('Fetching available orders...');
+            console.log('Agent location:', agentLocation);
+            console.log('Max distance:', maxDistance, 'km');
+
+            // Get orders that are placed, preparing or ready for pickup and not assigned
             const q = query(
                 collection(db, 'orders'),
-                where('status', '==', 'ready'),
-                where('deliveryAgentId', '==', null),
-                orderBy('createdAt', 'desc'),
-                limit(20)
+                where('status', 'in', ['placed', 'preparing', 'ready'])
             );
 
             const snapshot = await getDocs(q);
+            console.log('Found orders in DB:', snapshot.size);
             const orders = snapshot.docs.map(doc => {
                 const data = doc.data();
                 return {
                     id: doc.id,
-                    ...data,
+                    orderNumber: data.orderNumber || '',
+                    customerId: data.userId || data.customerId || '',
+                    restaurantId: data.restaurantId || data.establishmentId || '',
+                    deliveryAgentId: data.deliveryAgentId || null,
+                    customerName: data.deliveryAddress?.name || data.customerName || 'Customer',
+                    customerPhone: data.deliveryAddress?.phone || data.customerPhone || '',
+                    items: (data.items || []).map((item: any) => {
+                        console.log('Mapping item:', item);
+                        return {
+                            menuItemId: item.menuItem?.id || item.menuItemId || item.id || '',
+                            name: item.menuItem?.name || item.name || 'Item',
+                            price: item.menuItem?.price || item.price || item.menuItem?.discountPrice || 0,
+                            quantity: item.quantity || 1,
+                            customizations: Array.isArray(item.customizations)
+                                ? item.customizations.map((c: any) => typeof c === 'string' ? c : c.name || c)
+                                : [],
+                            specialInstructions: item.specialInstructions || ''
+                        };
+                    }),
+                    pricing: {
+                        subtotal: parseFloat(data.pricing?.itemTotal || data.pricing?.subtotal || 0) || 0,
+                        tax: parseFloat(data.pricing?.taxes || data.pricing?.tax || 0) || 0,
+                        deliveryFee: parseFloat(data.pricing?.deliveryFee || 0) || 0,
+                        discount: parseFloat(data.pricing?.discount || 0) || 0,
+                        total: parseFloat(data.pricing?.total || 0) || 0
+                    },
+                    status: data.status,
+                    payment: data.payment || { method: 'cash', status: 'pending', amount: data.pricing?.total || 0 },
+                    distance: data.distance || 0,
+                    deliveryFee: data.pricing?.deliveryFee || 0,
                     createdAt: data.createdAt?.toDate() || new Date(),
                     updatedAt: data.updatedAt?.toDate() || new Date(),
                     estimatedDeliveryTime: data.estimatedDeliveryTime?.toDate() || new Date(),
+                    actualDeliveryTime: data.actualDeliveryTime?.toDate(),
                     timeline: data.timeline?.map((t: any) => ({
                         ...t,
                         timestamp: t.timestamp?.toDate() || new Date()
-                    })) || []
+                    })) || [],
+                    addresses: {
+                        restaurant: {
+                            id: data.restaurantId || '',
+                            label: 'Restaurant',
+                            street: data.restaurantAddress?.address || data.restaurantAddress?.street || '',
+                            city: data.restaurantAddress?.city || '',
+                            state: data.restaurantAddress?.state || '',
+                            pincode: data.restaurantAddress?.pincode || '',
+                            coordinates: data.restaurantAddress?.coordinates || data.restaurantLocation || { lat: 0, lng: 0 }
+                        },
+                        delivery: {
+                            id: data.deliveryAddress?.id || '',
+                            label: data.deliveryAddress?.label || 'Delivery',
+                            street: data.deliveryAddress?.address || data.deliveryAddress?.street || '',
+                            city: data.deliveryAddress?.city || '',
+                            state: data.deliveryAddress?.state || '',
+                            pincode: data.deliveryAddress?.pincode || '',
+                            coordinates: data.deliveryAddress?.coordinates || { lat: 0, lng: 0 }
+                        }
+                    }
                 } as Order;
             });
 
-            // Filter by distance (in real app, use geospatial queries)
-            return orders.filter(order => {
-                const distance = this.calculateDistance(
-                    agentLocation,
-                    order.addresses.restaurant.coordinates
-                );
-                return distance <= maxDistance;
+            // Filter by distance and availability (not assigned and agent doesn't have active order)
+            const availableOrders = orders.filter(order => {
+                // Check if order is not assigned
+                if (order.deliveryAgentId) {
+                    console.log(`Order ${order.id} already assigned to agent`);
+                    return false;
+                }
+
+                // Calculate distance to restaurant
+                const restaurantCoords = order.addresses?.restaurant?.coordinates ||
+                                        order.restaurantLocation ||
+                                        { lat: 0, lng: 0 };
+                console.log(`Order ${order.id} - Agent location:`, agentLocation);
+                console.log(`Order ${order.id} - Restaurant coords:`, restaurantCoords);
+                const distance = this.calculateDistance(agentLocation, restaurantCoords);
+                console.log(`Order ${order.id} - Calculated distance: ${distance.toFixed(2)}km`);
+
+                if (distance <= maxDistance) {
+                    return true;
+                } else {
+                    console.log(`Order ${order.id} is ${distance.toFixed(2)}km away (max: ${maxDistance}km) - filtered out`);
+                    return false;
+                }
             });
+
+            console.log('Available orders after filtering:', availableOrders.length);
+            return availableOrders;
         } catch (error: any) {
             console.error('Error fetching available orders:', error);
             return [];
@@ -62,25 +133,83 @@ export const orderService = {
             const q = query(
                 collection(db, 'orders'),
                 where('deliveryAgentId', '==', agentId),
-                where('status', 'in', ['assigned', 'picked_up', 'on_the_way']),
-                orderBy('createdAt', 'desc')
+                where('status', 'in', ['assigned', 'picked_up', 'on_the_way'])
             );
 
             const snapshot = await getDocs(q);
-            return snapshot.docs.map(doc => {
+            const orders = snapshot.docs.map(doc => {
                 const data = doc.data();
                 return {
                     id: doc.id,
-                    ...data,
+                    orderNumber: data.orderNumber || '',
+                    customerId: data.userId || data.customerId || '',
+                    restaurantId: data.restaurantId || data.establishmentId || '',
+                    deliveryAgentId: data.deliveryAgentId || null,
+                    customerName: data.deliveryAddress?.name || data.customerName || 'Customer',
+                    customerPhone: data.deliveryAddress?.phone || data.customerPhone || '',
+                    items: (data.items || []).map((item: any) => {
+                        console.log('Mapping item:', item);
+                        return {
+                            menuItemId: item.menuItem?.id || item.menuItemId || item.id || '',
+                            name: item.menuItem?.name || item.name || 'Item',
+                            price: item.menuItem?.price || item.price || item.menuItem?.discountPrice || 0,
+                            quantity: item.quantity || 1,
+                            customizations: Array.isArray(item.customizations)
+                                ? item.customizations.map((c: any) => typeof c === 'string' ? c : c.name || c)
+                                : [],
+                            specialInstructions: item.specialInstructions || ''
+                        };
+                    }),
+                    pricing: {
+                        subtotal: parseFloat(data.pricing?.itemTotal || data.pricing?.subtotal || 0) || 0,
+                        tax: parseFloat(data.pricing?.taxes || data.pricing?.tax || 0) || 0,
+                        deliveryFee: parseFloat(data.pricing?.deliveryFee || 0) || 0,
+                        discount: parseFloat(data.pricing?.discount || 0) || 0,
+                        total: parseFloat(data.pricing?.total || 0) || 0
+                    },
+                    status: data.status,
+                    payment: data.payment || { method: 'cash', status: 'pending', amount: data.pricing?.total || 0 },
+                    distance: data.distance || 0,
+                    deliveryFee: data.pricing?.deliveryFee || 0,
                     createdAt: data.createdAt?.toDate() || new Date(),
                     updatedAt: data.updatedAt?.toDate() || new Date(),
                     estimatedDeliveryTime: data.estimatedDeliveryTime?.toDate() || new Date(),
+                    actualDeliveryTime: data.actualDeliveryTime?.toDate(),
                     timeline: data.timeline?.map((t: any) => ({
                         ...t,
                         timestamp: t.timestamp?.toDate() || new Date()
-                    })) || []
+                    })) || [],
+                    addresses: {
+                        restaurant: {
+                            id: data.restaurantId || '',
+                            label: 'Restaurant',
+                            street: data.restaurantAddress?.address || data.restaurantAddress?.street || '',
+                            city: data.restaurantAddress?.city || '',
+                            state: data.restaurantAddress?.state || '',
+                            pincode: data.restaurantAddress?.pincode || '',
+                            coordinates: data.restaurantAddress?.coordinates || data.restaurantLocation || { lat: 0, lng: 0 }
+                        },
+                        delivery: {
+                            id: data.deliveryAddress?.id || '',
+                            label: data.deliveryAddress?.label || 'Delivery',
+                            street: data.deliveryAddress?.address || data.deliveryAddress?.street || '',
+                            city: data.deliveryAddress?.city || '',
+                            state: data.deliveryAddress?.state || '',
+                            pincode: data.deliveryAddress?.pincode || '',
+                            coordinates: data.deliveryAddress?.coordinates || { lat: 0, lng: 0 }
+                        }
+                    }
                 } as Order;
             });
+
+            // Sort by createdAt on client side
+            orders.sort((a, b) => {
+                const dateA = a.createdAt instanceof Date ? a.createdAt : new Date();
+                const dateB = b.createdAt instanceof Date ? b.createdAt : new Date();
+                return dateB.getTime() - dateA.getTime(); // Descending order (newest first)
+            });
+
+            return orders;
         } catch (error: any) {
             console.error('Error fetching assigned orders:', error);
             return [];
@@ -102,14 +231,64 @@ export const orderService = {
                 const data = doc.data();
                 return {
                     id: doc.id,
-                    ...data,
+                    orderNumber: data.orderNumber || '',
+                    customerId: data.userId || data.customerId || '',
+                    restaurantId: data.restaurantId || data.establishmentId || '',
+                    deliveryAgentId: data.deliveryAgentId || null,
+                    customerName: data.deliveryAddress?.name || data.customerName || 'Customer',
+                    customerPhone: data.deliveryAddress?.phone || data.customerPhone || '',
+                    items: (data.items || []).map((item: any) => {
+                        console.log('Mapping item:', item);
+                        return {
+                            menuItemId: item.menuItem?.id || item.menuItemId || item.id || '',
+                            name: item.menuItem?.name || item.name || 'Item',
+                            price: item.menuItem?.price || item.price || item.menuItem?.discountPrice || 0,
+                            quantity: item.quantity || 1,
+                            customizations: Array.isArray(item.customizations)
+                                ? item.customizations.map((c: any) => typeof c === 'string' ? c : c.name || c)
+                                : [],
+                            specialInstructions: item.specialInstructions || ''
+                        };
+                    }),
+                    pricing: {
+                        subtotal: parseFloat(data.pricing?.itemTotal || data.pricing?.subtotal || 0) || 0,
+                        tax: parseFloat(data.pricing?.taxes || data.pricing?.tax || 0) || 0,
+                        deliveryFee: parseFloat(data.pricing?.deliveryFee || 0) || 0,
+                        discount: parseFloat(data.pricing?.discount || 0) || 0,
+                        total: parseFloat(data.pricing?.total || 0) || 0
+                    },
+                    status: data.status,
+                    payment: data.payment || { method: 'cash', status: 'pending', amount: data.pricing?.total || 0 },
+                    distance: data.distance || 0,
+                    deliveryFee: data.pricing?.deliveryFee || 0,
                     createdAt: data.createdAt?.toDate() || new Date(),
                     updatedAt: data.updatedAt?.toDate() || new Date(),
                     estimatedDeliveryTime: data.estimatedDeliveryTime?.toDate() || new Date(),
+                    actualDeliveryTime: data.actualDeliveryTime?.toDate(),
                     timeline: data.timeline?.map((t: any) => ({
                         ...t,
                         timestamp: t.timestamp?.toDate() || new Date()
-                    })) || []
+                    })) || [],
+                    addresses: {
+                        restaurant: {
+                            id: data.restaurantId || '',
+                            label: 'Restaurant',
+                            street: data.restaurantAddress?.address || data.restaurantAddress?.street || '',
+                            city: data.restaurantAddress?.city || '',
+                            state: data.restaurantAddress?.state || '',
+                            pincode: data.restaurantAddress?.pincode || '',
+                            coordinates: data.restaurantAddress?.coordinates || data.restaurantLocation || { lat: 0, lng: 0 }
+                        },
+                        delivery: {
+                            id: data.deliveryAddress?.id || '',
+                            label: data.deliveryAddress?.label || 'Delivery',
+                            street: data.deliveryAddress?.address || data.deliveryAddress?.street || '',
+                            city: data.deliveryAddress?.city || '',
+                            state: data.deliveryAddress?.state || '',
+                            pincode: data.deliveryAddress?.pincode || '',
+                            coordinates: data.deliveryAddress?.coordinates || { lat: 0, lng: 0 }
+                        }
+                    }
                 } as Order;
             });
 
@@ -152,7 +331,11 @@ export const orderService = {
             const orderData = orderDoc.data() as Order;
 
             // Check if order is still available
-            if (orderData.deliveryAgentId || orderData.status !== 'ready') {
+            if (orderData.deliveryAgentId) {
+                throw new Error('Order is already assigned to another agent');
+            }
+
+            if (!['placed', 'preparing', 'ready'].includes(orderData.status)) {
                 throw new Error('Order is no longer available');
             }
 
@@ -160,8 +343,8 @@ export const orderService = {
                 ...(orderData.timeline || []),
                 {
                     status: 'assigned' as const,
-                    timestamp: new Date(),
-                    note: 'Order assigned to delivery agent'
+                    timestamp: Timestamp.now(),
+                    note: 'Delivery agent accepted the order'
                 }
             ];
 
@@ -169,7 +352,7 @@ export const orderService = {
                 deliveryAgentId: agentId,
                 status: 'assigned',
                 timeline: newTimeline,
-                updatedAt: new Date()
+                updatedAt: Timestamp.now()
             });
         } catch (error: any) {
             throw new Error(error.message || 'Failed to accept order');
@@ -186,30 +369,145 @@ export const orderService = {
             }
 
             const orderData = orderDoc.data() as Order;
+
+            // Prepare timeline entry
+            const timelineEntry: any = {
+                status: status as any,
+                timestamp: Timestamp.now(),
+                note: note || `Status updated to ${status}`
+            };
+
+            // Only add location if it's provided
+            if (location) {
+                timelineEntry.location = location;
+            }
+
             const newTimeline = [
                 ...(orderData.timeline || []),
-                {
-                    status: status as any,
-                    timestamp: new Date(),
-                    note: note || `Status updated to ${status}`,
-                    location: location
-                }
+                timelineEntry
             ];
 
             const updateData: any = {
                 status,
                 timeline: newTimeline,
-                updatedAt: new Date()
+                updatedAt: Timestamp.now()
             };
 
             if (status === 'delivered') {
-                updateData.actualDeliveryTime = new Date();
+                updateData.actualDeliveryTime = Timestamp.now();
             }
 
             await updateDoc(orderRef, updateData);
         } catch (error: any) {
             throw new Error(error.message || 'Failed to update order status');
         }
+    },
+
+    async getOrderDetails(orderId: string): Promise<Order> {
+        try {
+            const orderDoc = await getDoc(doc(db, 'orders', orderId));
+
+            if (!orderDoc.exists()) {
+                throw new Error('Order not found');
+            }
+
+            const data = orderDoc.data();
+            console.log('Order distance from DB:', data.distance, 'type:', typeof data.distance);
+
+            // Calculate distance if not stored in database (for old orders)
+            let distance = data.distance || 0;
+            if (!distance || distance === 0) {
+                const restaurantCoords = data.restaurantAddress?.coordinates || { lat: 0, lng: 0 };
+                const deliveryCoords = data.deliveryAddress?.coordinates || { lat: 0, lng: 0 };
+
+                if (restaurantCoords.lat !== 0 && deliveryCoords.lat !== 0) {
+                    distance = this.calculateDistance(restaurantCoords, deliveryCoords);
+                    console.log('Calculated distance on-the-fly:', distance);
+                }
+            }
+
+            return {
+                id: orderDoc.id,
+                orderNumber: data.orderNumber || '',
+                customerId: data.userId || data.customerId || '',
+                restaurantId: data.restaurantId || data.establishmentId || '',
+                deliveryAgentId: data.deliveryAgentId || null,
+                customerName: data.deliveryAddress?.name || data.customerName || 'Customer',
+                customerPhone: data.deliveryAddress?.phone || data.customerPhone || '',
+                items: (data.items || []).map((item: any) => {
+                    const price = item.menuItem?.discountPrice && item.menuItem.discountPrice !== ''
+                        ? parseFloat(item.menuItem.discountPrice)
+                        : parseFloat(item.menuItem?.price || item.price || 0);
+
+                    return {
+                        menuItemId: item.menuItem?.id || item.menuItemId || item.id || '',
+                        name: item.menuItem?.name || item.name || 'Item',
+                        price: isNaN(price) ? 0 : price,
+                        quantity: item.quantity || 1,
+                        customizations: Array.isArray(item.customizations)
+                            ? item.customizations.map((c: any) => typeof c === 'string' ? c : c.name || c)
+                            : [],
+                        specialInstructions: item.specialInstructions || ''
+                    };
+                }),
+                pricing: {
+                    subtotal: parseFloat(data.pricing?.itemTotal || data.pricing?.subtotal || 0) || 0,
+                    tax: parseFloat(data.pricing?.taxes || data.pricing?.tax || 0) || 0,
+                    deliveryFee: parseFloat(data.pricing?.deliveryFee || 0) || 0,
+                    discount: parseFloat(data.pricing?.discount || 0) || 0,
+                    total: parseFloat(data.pricing?.total || 0) || 0
+                },
+                status: data.status,
+                payment: data.payment || { method: 'cash', status: 'pending', amount: data.pricing?.total || 0 },
+                distance: distance,
+                deliveryFee: data.pricing?.deliveryFee || 0,
+                createdAt: data.createdAt?.toDate() || new Date(),
+                updatedAt: data.updatedAt?.toDate() || new Date(),
+                estimatedDeliveryTime: data.estimatedDeliveryTime?.toDate() || new Date(),
+                actualDeliveryTime: data.actualDeliveryTime?.toDate(),
+                timeline: data.timeline?.map((t: any) => ({
+                    ...t,
+                    timestamp: t.timestamp?.toDate() || new Date()
+                })) || [],
+                addresses: {
+                    restaurant: {
+                        id: data.restaurantId || '',
+                        label: 'Restaurant',
+                        street: data.restaurantAddress?.address || data.restaurantAddress?.street || '',
+                        city: data.restaurantAddress?.city || '',
+                        state: data.restaurantAddress?.state || '',
+                        pincode: data.restaurantAddress?.pincode || '',
+                        coordinates: data.restaurantAddress?.coordinates || data.restaurantLocation || { lat: 0, lng: 0 }
+                    },
+                    delivery: {
+                        id: data.deliveryAddress?.id || '',
+                        label: data.deliveryAddress?.label || 'Delivery',
+                        street: data.deliveryAddress?.address || data.deliveryAddress?.street || '',
+                        city: data.deliveryAddress?.city || '',
+                        state: data.deliveryAddress?.state || '',
+                        pincode: data.deliveryAddress?.pincode || '',
+                        coordinates: data.deliveryAddress?.coordinates || { lat: 0, lng: 0 }
+                    }
+                }
+            } as Order;
+        } catch (error: any) {
+            throw new Error(error.message || 'Failed to fetch order details');
+        }
+    },
+
+    openGoogleMaps(destination: { lat: number; lng: number }, origin?: { lat: number; lng: number }): void {
+        // Create Google Maps URL with directions
+        let url = `https://www.google.com/maps/dir/?api=1`;
+
+        if (origin) {
+            url += `&origin=${origin.lat},${origin.lng}`;
+        }
+
+        url += `&destination=${destination.lat},${destination.lng}`;
+        url += `&travelmode=driving`;
+
+        // Open in new tab/window or native Google Maps app
+        window.open(url, '_blank');
     },
 
     calculateDistance(pos1: { lat: number; lng: number }, pos2: { lat: number; lng: number }): number {
@@ -243,14 +541,64 @@ export const orderService = {
                 const data = doc.data();
                 return {
                     id: doc.id,
-                    ...data,
+                    orderNumber: data.orderNumber || '',
+                    customerId: data.userId || data.customerId || '',
+                    restaurantId: data.restaurantId || data.establishmentId || '',
+                    deliveryAgentId: data.deliveryAgentId || null,
+                    customerName: data.deliveryAddress?.name || data.customerName || 'Customer',
+                    customerPhone: data.deliveryAddress?.phone || data.customerPhone || '',
+                    items: (data.items || []).map((item: any) => {
+                        console.log('Mapping item:', item);
+                        return {
+                            menuItemId: item.menuItem?.id || item.menuItemId || item.id || '',
+                            name: item.menuItem?.name || item.name || 'Item',
+                            price: item.menuItem?.price || item.price || item.menuItem?.discountPrice || 0,
+                            quantity: item.quantity || 1,
+                            customizations: Array.isArray(item.customizations)
+                                ? item.customizations.map((c: any) => typeof c === 'string' ? c : c.name || c)
+                                : [],
+                            specialInstructions: item.specialInstructions || ''
+                        };
+                    }),
+                    pricing: {
+                        subtotal: parseFloat(data.pricing?.itemTotal || data.pricing?.subtotal || 0) || 0,
+                        tax: parseFloat(data.pricing?.taxes || data.pricing?.tax || 0) || 0,
+                        deliveryFee: parseFloat(data.pricing?.deliveryFee || 0) || 0,
+                        discount: parseFloat(data.pricing?.discount || 0) || 0,
+                        total: parseFloat(data.pricing?.total || 0) || 0
+                    },
+                    status: data.status,
+                    payment: data.payment || { method: 'cash', status: 'pending', amount: data.pricing?.total || 0 },
+                    distance: data.distance || 0,
+                    deliveryFee: data.pricing?.deliveryFee || 0,
                     createdAt: data.createdAt?.toDate() || new Date(),
                     updatedAt: data.updatedAt?.toDate() || new Date(),
                     estimatedDeliveryTime: data.estimatedDeliveryTime?.toDate() || new Date(),
+                    actualDeliveryTime: data.actualDeliveryTime?.toDate(),
                     timeline: data.timeline?.map((t: any) => ({
                         ...t,
                         timestamp: t.timestamp?.toDate() || new Date()
-                    })) || []
+                    })) || [],
+                    addresses: {
+                        restaurant: {
+                            id: data.restaurantId || '',
+                            label: 'Restaurant',
+                            street: data.restaurantAddress?.address || data.restaurantAddress?.street || '',
+                            city: data.restaurantAddress?.city || '',
+                            state: data.restaurantAddress?.state || '',
+                            pincode: data.restaurantAddress?.pincode || '',
+                            coordinates: data.restaurantAddress?.coordinates || data.restaurantLocation || { lat: 0, lng: 0 }
+                        },
+                        delivery: {
+                            id: data.deliveryAddress?.id || '',
+                            label: data.deliveryAddress?.label || 'Delivery',
+                            street: data.deliveryAddress?.address || data.deliveryAddress?.street || '',
+                            city: data.deliveryAddress?.city || '',
+                            state: data.deliveryAddress?.state || '',
+                            pincode: data.deliveryAddress?.pincode || '',
+                            coordinates: data.deliveryAddress?.coordinates || { lat: 0, lng: 0 }
+                        }
+                    }
                 } as Order;
             });
 
@@ -260,7 +608,7 @@ export const orderService = {
                     agentLocation,
                     order.addresses.restaurant.coordinates
                 );
-                return distance <= 10; // 10km radius
+                return distance <= 5; // 5km radius
             });
 
             callback(nearbyOrders);

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement | HTMLTextAreaElement> {
     label?: string;
@@ -9,7 +9,7 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement | HTMLTe
     rows?: number;
 }
 
-export const Input: React.FC<InputProps> = ({
+export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputProps>(({
                                                 label,
                                                 error,
                                                 icon,
@@ -18,7 +18,7 @@ export const Input: React.FC<InputProps> = ({
                                                 rows = 3,
                                                 className = '',
                                                 ...props
-                                            }) => {
+                                            }, ref) => {
     const Component = multiline ? 'textarea' : 'input';
 
     return (
@@ -35,6 +35,7 @@ export const Input: React.FC<InputProps> = ({
                     </div>
                 )}
                 <Component
+                    ref={ref as any}
                     className={`w-full px-4 py-3 border border-secondary-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors bg-surface text-lg ${
                         error ? 'border-error-500 focus:ring-error-500' : ''
                     } ${icon && !multiline ? 'pl-12' : ''} ${className}`}
@@ -50,4 +51,4 @@ export const Input: React.FC<InputProps> = ({
             )}
         </div>
     );
-};
+});

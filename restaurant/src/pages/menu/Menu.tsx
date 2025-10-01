@@ -54,7 +54,7 @@ const Menu: React.FC = () => {
 
     useEffect(() => {
         if (user?.uid && selectedCategoryId) {
-            dispatch(fetchMenuItems({ restaurantId: user.uid, categoryId: selectedCategoryId }))
+            dispatch(fetchMenuItems({ establishmentId: user.uid, categoryId: selectedCategoryId }))
                 .unwrap()
                 .catch((error) => {
                     console.error('Failed to fetch menu items:', error);
@@ -107,7 +107,7 @@ const Menu: React.FC = () => {
             } else {
                 await dispatch(createCategory({
                     ...data,
-                    restaurantId: user!.uid,
+                    establishmentId: user!.uid,
                     image: '',
                     sortOrder: categories.length
                 })).unwrap();
@@ -162,7 +162,7 @@ const Menu: React.FC = () => {
             } else {
                 await dispatch(createMenuItem({
                     ...data,
-                    restaurantId: user!.uid,
+                    establishmentId: user!.uid,
                     rating: 0,
                     totalRatings: 0
                 })).unwrap();

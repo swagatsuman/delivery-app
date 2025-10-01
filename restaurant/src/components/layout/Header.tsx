@@ -1,10 +1,10 @@
 import React from 'react';
 import { Bell, User, LogOut, Power, PowerOff } from 'lucide-react';
-import { Button } from '../ui/Button';
+import { Icon } from '../ui/Icon';
 import { Toggle } from '../ui/Toggle';
 import { useAuth } from '../../hooks/useAuth';
 import { useAppDispatch } from '../../hooks/useAppDispatch';
-import { logoutUser, updateRestaurantStatus } from '../../store/slices/authSlice';
+import { logoutUser, updateEstablishmentStatus } from '../../store/slices/authSlice';
 import { authService } from '../../services/authService';
 import toast from 'react-hot-toast';
 
@@ -23,15 +23,15 @@ export const Header: React.FC<HeaderProps> = ({ title, actions }) => {
 
     const handleToggleStatus = async (isOpen: boolean) => {
         try {
-            await authService.updateRestaurantStatus(isOpen);
-            dispatch(updateRestaurantStatus(isOpen));
-            toast.success(`Restaurant ${isOpen ? 'opened' : 'closed'} successfully`);
+            await authService.updateEstablishmentStatus(isOpen);
+            dispatch(updateEstablishmentStatus(isOpen));
+            toast.success(`Establishment ${isOpen ? 'opened' : 'closed'} successfully`);
         } catch (error: any) {
-            toast.error(error.message || 'Failed to update restaurant status');
+            toast.error(error.message || 'Failed to update establishment status');
         }
     };
 
-    const isOpen = user?.restaurantDetails?.operatingHours.isOpen || false;
+    const isOpen = user?.establishmentDetails?.operatingHours.isOpen || false;
 
     return (
         <header className="bg-surface shadow-sm border-b border-secondary-200 sticky top-0 z-40">
@@ -40,7 +40,7 @@ export const Header: React.FC<HeaderProps> = ({ title, actions }) => {
                     <div className="flex items-center space-x-6">
                         <h1 className="text-xl font-semibold text-secondary-900">{title}</h1>
 
-                        {/* Restaurant Status Toggle */}
+                        {/* Establishment Status Toggle */}
                         <div className="flex items-center space-x-3 px-4 py-2 bg-secondary-50 rounded-lg">
                             <div className="flex items-center space-x-2">
                                 {isOpen ? (
@@ -64,9 +64,7 @@ export const Header: React.FC<HeaderProps> = ({ title, actions }) => {
                         {actions}
 
                         {/* Notifications */}
-                        <Button variant="ghost" size="sm">
-                            <Bell className="h-5 w-5" />
-                        </Button>
+                        <Icon variant="ghost" size="md" icon={<Bell className="h-5 w-5" />} />
 
                         {/* User Menu */}
                         <div className="flex items-center space-x-3">
@@ -76,13 +74,13 @@ export const Header: React.FC<HeaderProps> = ({ title, actions }) => {
                                 </div>
                                 <div className="hidden md:block">
                                     <div className="text-sm font-medium text-secondary-900">
-                                        {user?.restaurantDetails?.businessName || user?.name}
+                                        {user?.establishmentDetails?.businessName || user?.name}
                                     </div>
                                     <div className="text-xs text-secondary-500">{user?.email}</div>
                                 </div>
                             </div>
 
-                            <Button
+                            <Icon
                                 variant="ghost"
                                 size="sm"
                                 onClick={handleLogout}

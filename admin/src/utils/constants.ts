@@ -1,6 +1,6 @@
 export const USER_ROLES = {
     ADMIN: 'admin',
-    RESTAURANT: 'restaurant',
+    ESTABLISHMENT: 'establishment',
     CUSTOMER: 'customer',
     DELIVERY_AGENT: 'delivery_agent'
 } as const;
@@ -9,6 +9,22 @@ export const USER_STATUS = {
     PENDING: 'pending',
     ACTIVE: 'active',
     INACTIVE: 'inactive',
+    SUSPENDED: 'suspended'
+} as const;
+
+export const ESTABLISHMENT_TYPES = {
+    RESTAURANT: 'restaurant',
+    FOOD_TRUCK: 'food_truck',
+    GROCERY_SHOP: 'grocery_shop',
+    BAKERY: 'bakery',
+    CAFE: 'cafe',
+    CLOUD_KITCHEN: 'cloud_kitchen'
+} as const;
+
+export const ESTABLISHMENT_STATUS = {
+    PENDING: 'pending',
+    APPROVED: 'approved',
+    REJECTED: 'rejected',
     SUSPENDED: 'suspended'
 } as const;
 
@@ -26,8 +42,8 @@ export const ORDER_STATUS = {
 export const ROUTES = {
     LOGIN: '/login',
     DASHBOARD: '/dashboard',
-    RESTAURANTS: '/restaurants',
-    RESTAURANT_DETAIL: '/restaurants/:id',
+    ESTABLISHMENTS: '/establishments',
+    ESTABLISHMENT_DETAIL: '/establishments/:id',
     USERS: '/users',
     USER_DETAIL: '/users/:id',
     DELIVERY_AGENTS: '/delivery-agents',
@@ -38,7 +54,7 @@ export const ROUTES = {
 
 export const API_ENDPOINTS = {
     USERS: 'users',
-    RESTAURANTS: 'restaurants',
+    ESTABLISHMENTS: 'establishments',
     ORDERS: 'orders',
     CATEGORIES: 'categories',
     MENU_ITEMS: 'menuItems',

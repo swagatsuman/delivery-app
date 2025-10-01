@@ -20,9 +20,18 @@ export const useAuth = () => {
 
                     if (userDoc.exists()) {
                         const userData = userDoc.data() as User;
+
+                        // Fetch delivery agent details
+                        let deliveryAgentDetails = null;
+                        const agentDoc = await getDoc(doc(db, 'deliveryAgents', firebaseUser.uid));
+                        if (agentDoc.exists()) {
+                            deliveryAgentDetails = agentDoc.data();
+                        }
+
                         dispatch(setUser({
                             ...userData,
-                            id: firebaseUser.uid
+                            id: firebaseUser.uid,
+                            deliveryAgentDetails
                         }));
                     } else {
                         dispatch(setUser(null));

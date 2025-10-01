@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { Link } from 'react-router-dom';
 import { Mail, Lock } from 'lucide-react';
 import { Button } from '../../ui/Button.tsx';
 import { Input } from '../../ui/Input';
@@ -90,10 +91,10 @@ export const LoginForm: React.FC = () => {
 
             <div className="mt-6 text-center">
                 <p className="text-sm text-secondary-600">
-                    Forgot your password?{' '}
-                    <a href="#" className="text-primary-600 hover:text-primary-700 font-medium">
-                        Contact Administrator
-                    </a>
+                    Don't have an account?{' '}
+                    <Link to="/signup" className="text-primary-600 hover:text-primary-700 font-medium">
+                        Sign Up
+                    </Link>
                 </p>
             </div>
         </div>

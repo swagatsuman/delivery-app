@@ -180,8 +180,28 @@ const OrderDetail: React.FC = () => {
                             <div className="space-y-4">
                                 {selectedOrder.items.map((item, index) => (
                                     <div key={index} className="flex items-start space-x-4 p-4 border border-secondary-200 rounded-lg">
-                                        <div className="flex-shrink-0 w-16 h-16 bg-secondary-100 rounded-lg flex items-center justify-center">
-                                            <Package className="h-6 w-6 text-secondary-400" />
+                                        <div className="flex-shrink-0 w-16 h-16 bg-secondary-100 rounded-lg overflow-hidden">
+                                            {item.images && item.images.length > 0 ? (
+                                                <img
+                                                    src={item.images[0]}
+                                                    alt={item.name}
+                                                    className="w-full h-full object-cover"
+                                                    onError={(e) => {
+                                                        e.currentTarget.style.display = 'none';
+                                                        const parent = e.currentTarget.parentElement;
+                                                        if (parent) {
+                                                            parent.classList.add('flex', 'items-center', 'justify-center');
+                                                            const icon = document.createElement('div');
+                                                            icon.innerHTML = '<svg class="h-6 w-6 text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>';
+                                                            parent.appendChild(icon.firstElementChild!);
+                                                        }
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center">
+                                                    <Package className="h-6 w-6 text-secondary-400" />
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="flex-1">
                                             <h4 className="font-medium text-secondary-900">{item.name}</h4>

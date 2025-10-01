@@ -15,11 +15,11 @@ import type { Address } from '../types';
 class LocationService {
 
     async setCurrentLocation(address: Address): Promise<void> {
-        localStorage.setItem('currentLocation', JSON.stringify(address));
+        localStorage.setItem('foodEatsCurrentLocation', JSON.stringify(address));
     }
 
     async getCurrentLocation(): Promise<Address | null> {
-        const stored = localStorage.getItem('currentLocation');
+        const stored = localStorage.getItem('foodEatsCurrentLocation');
         return stored ? JSON.parse(stored) : null;
     }
 

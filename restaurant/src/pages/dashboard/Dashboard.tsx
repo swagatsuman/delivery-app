@@ -46,7 +46,7 @@ const Dashboard: React.FC = () => {
                 {/* Welcome Message */}
                 <div className="bg-gradient-to-r from-primary-500 to-primary-600 rounded-xl p-6 text-white">
                     <h2 className="text-2xl font-bold mb-2">
-                        Welcome back, {user?.restaurantDetails?.businessName}!
+                        Welcome back, {user?.establishmentDetails?.businessName}!
                     </h2>
                     <p className="text-primary-100">
                         Here's what's happening with your restaurant today.

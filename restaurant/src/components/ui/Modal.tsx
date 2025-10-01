@@ -1,6 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
-import { Button } from './Button';
+import { Icon } from './Icon';
 
 interface ModalProps {
     isOpen: boolean;
@@ -39,7 +39,7 @@ export const Modal: React.FC<ModalProps> = ({
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-semibold text-secondary-900">{title}</h3>
                         {showCloseButton && (
-                            <Button
+                            <Icon
                                 variant="ghost"
                                 size="sm"
                                 onClick={onClose}

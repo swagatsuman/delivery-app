@@ -6,7 +6,9 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Loading } from '../../components/ui/Loading';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
+import { useAuth } from '../../hooks/useAuth';
 import { fetchOrderDetails, updateOrderStatus } from '../../store/slices/orderSlice';
+import { orderService } from '../../services/orderService';
 import { formatRelativeTime, formatCurrency, formatDate } from '../../utils/helpers';
 import {
     ArrowLeft,
@@ -25,6 +27,7 @@ const OrderDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
+    const { user } = useAuth();
     const { selectedOrder, loading, error } = useAppSelector(state => state.orders);
     const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
 
@@ -51,6 +54,9 @@ const OrderDetail: React.FC = () => {
     const handleStatusUpdate = async (status: string) => {
         if (!selectedOrder) return;
 
+        console.log('Updating order status to:', status);
+        console.log('Current location:', currentLocation);
+
         try {
             await dispatch(updateOrderStatus({
                 orderId: selectedOrder.id,
@@ -58,7 +64,12 @@ const OrderDetail: React.FC = () => {
                 location: currentLocation
             })).unwrap();
             toast.success('Order status updated successfully');
+
+            // Refresh order details
+            console.log('Refreshing order details...');
+            dispatch(fetchOrderDetails(selectedOrder.id));
         } catch (error: any) {
+            console.error('Error updating order status:', error);
             toast.error(error.message || 'Failed to update order status');
         }
     };
@@ -73,9 +84,10 @@ const OrderDetail: React.FC = () => {
     };
 
     const openDirections = (address: any) => {
-        const destination = `${address.coordinates.lat},${address.coordinates.lng}`;
-        const url = `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
-        window.open(url, '_blank');
+        const destination = { lat: address.coordinates.lat, lng: address.coordinates.lng };
+        // Use real-time current location if available, otherwise fall back to stored location
+        const origin = currentLocation || user?.deliveryAgentDetails?.currentLocation;
+        orderService.openGoogleMaps(destination, origin);
     };
 
     if (loading) {
@@ -155,7 +167,10 @@ const OrderDetail: React.FC = () => {
                         <div className="flex space-x-3">
                             <Button
                                 variant={nextAction.color as any}
-                                onClick={() => handleStatusUpdate(nextAction.status)}
+                                onClick={() => {
+                                    console.log('Button clicked! Next action:', nextAction);
+                                    handleStatusUpdate(nextAction.status);
+                                }}
                                 className="flex-1"
                             >
                                 {nextAction.label}
@@ -230,34 +245,38 @@ const OrderDetail: React.FC = () => {
                         {/* Order Items */}
                         <Card title="Order Items" padding="md">
                             <div className="space-y-4">
-                                {selectedOrder.items.map((item, index) => (
-                                    <div key={index} className="flex items-start space-x-4 p-4 border border-secondary-200 rounded-lg">
-                                        <div className="flex-shrink-0 w-16 h-16 bg-secondary-100 rounded-lg flex items-center justify-center">
-                                            <Package className="h-6 w-6 text-secondary-400" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <h4 className="font-medium text-secondary-900">{item.name}</h4>
-                                            {item.customizations.length > 0 && (
-                                                <p className="text-sm text-secondary-600 mt-1">
-                                                    Customizations: {item.customizations.join(', ')}
-                                                </p>
-                                            )}
-                                            {item.specialInstructions && (
-                                                <p className="text-sm text-warning-600 mt-1">
-                                                    Note: {item.specialInstructions}
-                                                </p>
-                                            )}
-                                            <div className="flex items-center justify-between mt-2">
-                                                <span className="text-sm text-secondary-600">
-                                                    Quantity: {item.quantity}
-                                                </span>
-                                                <span className="font-semibold text-secondary-900">
-                                                    {formatCurrency(item.price * item.quantity)}
-                                                </span>
+                                {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                                    selectedOrder.items.map((item, index) => (
+                                        <div key={index} className="flex items-start space-x-4 p-4 border border-secondary-200 rounded-lg">
+                                            <div className="flex-shrink-0 w-16 h-16 bg-secondary-100 rounded-lg flex items-center justify-center">
+                                                <Package className="h-6 w-6 text-secondary-400" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <h4 className="font-medium text-secondary-900">{item.name || 'Item'}</h4>
+                                                {item.customizations && item.customizations.length > 0 && (
+                                                    <p className="text-sm text-secondary-600 mt-1">
+                                                        Customizations: {item.customizations.join(', ')}
+                                                    </p>
+                                                )}
+                                                {item.specialInstructions && (
+                                                    <p className="text-sm text-warning-600 mt-1">
+                                                        Note: {item.specialInstructions}
+                                                    </p>
+                                                )}
+                                                <div className="flex items-center justify-between mt-2">
+                                                    <span className="text-sm text-secondary-600">
+                                                        Quantity: {item.quantity || 0}
+                                                    </span>
+                                                    <span className="font-semibold text-secondary-900">
+                                                        {formatCurrency((item.price || 0) * (item.quantity || 0))}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))
+                                ) : (
+                                    <p className="text-sm text-secondary-500 text-center py-4">No items found</p>
+                                )}
                             </div>
                         </Card>
 

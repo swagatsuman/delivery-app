@@ -2,6 +2,7 @@ import React from 'react';
 import { Table } from '../../ui/Table';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
+import { Icon } from '../../ui/Icon';
 import type { User } from '../../../types';
 import { formatDate } from '../../../utils/helpers';
 import { Eye, Check, X, Ban, MapPin, Phone, Mail } from 'lucide-react';
@@ -96,12 +97,11 @@ export const RestaurantList: React.FC<RestaurantListProps> = ({
             title: 'Actions',
             render: (_, record: User) => (
                 <div className="flex items-center space-x-2">
-                    <Button
+                    <Icon
+                        icon={<Eye />}
                         size="sm"
                         variant="ghost"
-                        icon={<Eye className="h-4 w-4"/>}
                         onClick={() => onViewDetails(record)}
-                        title="View Details"
                     />
 
                     {record.status === 'pending' && (

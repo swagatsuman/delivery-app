@@ -20,7 +20,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    if (user.role !== 'restaurant') {
+    if (user.role !== 'establishment') {
         return <Navigate to="/unauthorized" replace />;
     }
 

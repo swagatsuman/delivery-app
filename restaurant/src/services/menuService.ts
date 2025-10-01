@@ -13,12 +13,12 @@ import { db } from '../config/firebase';
 import type { Category, MenuItem } from '../types';
 
 export const menuService = {
-    async getCategories(restaurantId: string): Promise<Category[]> {
+    async getCategories(establishmentId: string): Promise<Category[]> {
         try {
-            // First try with compound index (restaurantId + sortOrder)
+            // First try with compound index (establishmentId + sortOrder)
             let q = query(
                 collection(db, 'categories'),
-                where('restaurantId', '==', restaurantId),
+                where('establishmentId', '==', establishmentId),
                 orderBy('sortOrder', 'asc')
             );
 
@@ -31,7 +31,7 @@ export const menuService = {
                 // Fallback to simple query without orderBy
                 q = query(
                     collection(db, 'categories'),
-                    where('restaurantId', '==', restaurantId)
+                    where('establishmentId', '==', establishmentId)
                 );
 
                 const snapshot = await getDocs(q);
@@ -82,16 +82,16 @@ export const menuService = {
         }
     },
 
-    async getMenuItems(restaurantId: string, categoryId?: string): Promise<MenuItem[]> {
+    async getMenuItems(establishmentId: string, categoryId?: string): Promise<MenuItem[]> {
         try {
             let q;
 
             if (categoryId) {
-                // Try compound index query first (restaurantId + categoryId + createdAt)
+                // Try compound index query first (establishmentId + categoryId + createdAt)
                 try {
                     q = query(
                 collection(db, 'menuItems'),
-                where('restaurantId', '==', restaurantId),
+                where('establishmentId', '==', establishmentId),
                         where('categoryId', '==', categoryId),
                 orderBy('createdAt', 'desc')
             );
@@ -104,16 +104,16 @@ export const menuService = {
                     // Fallback to simple query without orderBy
                     q = query(
                         collection(db, 'menuItems'),
-                        where('restaurantId', '==', restaurantId),
+                        where('establishmentId', '==', establishmentId),
                         where('categoryId', '==', categoryId)
                     );
                 }
             } else {
-                // Try single field index query first (restaurantId + createdAt)
+                // Try single field index query first (establishmentId + createdAt)
                 try {
                 q = query(
                     collection(db, 'menuItems'),
-                    where('restaurantId', '==', restaurantId),
+                    where('establishmentId', '==', establishmentId),
                     orderBy('createdAt', 'desc')
                 );
 
@@ -125,7 +125,7 @@ export const menuService = {
                     // Fallback to simple query without orderBy
                     q = query(
                         collection(db, 'menuItems'),
-                        where('restaurantId', '==', restaurantId)
+                        where('establishmentId', '==', establishmentId)
                     );
                 }
             }

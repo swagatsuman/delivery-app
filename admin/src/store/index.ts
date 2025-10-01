@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
 import authSlice from './slices/authSlice';
-import restaurantSlice from './slices/restaurantSlice';
+import establishmentSlice from './slices/establishmentSlice';
 import userSlice from './slices/userSlice';
 import dashboardSlice from './slices/dashboardSlice';
 import deliveryAgentSlice from "./slices/deliveryAgentSlice.ts";
@@ -8,7 +8,7 @@ import deliveryAgentSlice from "./slices/deliveryAgentSlice.ts";
 export const store = configureStore({
     reducer: {
         auth: authSlice,
-        restaurants: restaurantSlice,
+        establishments: establishmentSlice,
         users: userSlice,
         dashboard: dashboardSlice,
         deliveryAgents: deliveryAgentSlice

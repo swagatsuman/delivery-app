@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
+import { Icon } from '../../ui/Icon';
 import { Badge } from '../../ui/Badge';
 import type { Category } from '../../../types';
 import { Edit, Trash2, Plus } from 'lucide-react';
@@ -80,7 +81,7 @@ export const CategoryList: React.FC<CategoryListProps> = ({
                                     )}
                                 </div>
                                 <div className="flex space-x-1 ml-2">
-                                    <Button
+                                    <Icon
                                         size="sm"
                                         variant="ghost"
                                         onClick={(e) => {
@@ -89,7 +90,7 @@ export const CategoryList: React.FC<CategoryListProps> = ({
                                         }}
                                         icon={<Edit className="h-3 w-3" />}
                                     />
-                                    <Button
+                                    <Icon
                                         size="sm"
                                         variant="ghost"
                                         onClick={(e) => {

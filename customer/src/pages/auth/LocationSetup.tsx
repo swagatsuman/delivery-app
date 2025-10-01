@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MapPin, Plus } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
@@ -7,18 +7,70 @@ import { useAppDispatch } from '../../hooks/useAppDispatch';
 import { setUserLocation } from '../../store/slices/locationSlice';
 import type { Coordinates } from '../../types';
 
+declare global {
+    interface Window {
+        google: any;
+        initGooglePlaces: () => void;
+    }
+}
+
 const LocationSetup: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const dispatch = useAppDispatch();
     const [selectedLocation, setSelectedLocation] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const [googleLoaded, setGoogleLoaded] = useState(false);
+
+    useEffect(() => {
+        // Load Google Maps API if not already loaded
+        if (window.google && window.google.maps) {
+            setGoogleLoaded(true);
+            return;
+        }
+
+        const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+        if (!apiKey) {
+            console.warn('Google Places API key not found');
+            return;
+        }
+
+        if (document.getElementById('google-maps-script')) {
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.id = 'google-maps-script';
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGooglePlaces`;
+        script.async = true;
+        script.defer = true;
+
+        window.initGooglePlaces = () => {
+            setGoogleLoaded(true);
+        };
+
+        script.onerror = () => {
+            console.error('Failed to load Google Places API');
+        };
+
+        document.head.appendChild(script);
+    }, []);
 
     const handleLocationSelect = (place: any) => {
         setSelectedLocation(place);
     };
 
     const handleCurrentLocation = () => {
+        if (!navigator.geolocation) {
+            alert('Geolocation is not supported by this browser.');
+            return;
+        }
+
+        if (!googleLoaded || !window.google || !window.google.maps) {
+            alert('Google Maps is loading. Please wait a moment and try again.');
+            return;
+        }
+
         setLoading(true);
         navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -27,18 +79,83 @@ const LocationSetup: React.FC = () => {
                     lng: position.coords.longitude
                 };
 
-                setSelectedLocation({
-                    address: 'Current Location',
-                    coordinates,
-                    city: 'Bangalore',
-                    state: 'Karnataka',
-                    pincode: '560001'
-                });
-                setLoading(false);
+                // Use Google's Geocoder to get the actual address
+                const geocoder = new window.google.maps.Geocoder();
+                geocoder.geocode(
+                    { location: coordinates },
+                    (results: any[], status: any) => {
+                        console.log('Geocoding status:', status);
+                        console.log('Geocoding results:', results);
+
+                        if (status === 'OK' && results && results.length > 0) {
+                            const result = results[0];
+                            const addressComponents = result.address_components || [];
+
+                            let city = '';
+                            let state = '';
+                            let pincode = '';
+
+                            addressComponents.forEach((component: any) => {
+                                const types = component.types;
+
+                                if (types.includes('locality')) {
+                                    city = component.long_name;
+                                } else if (types.includes('administrative_area_level_2') && !city) {
+                                    city = component.long_name;
+                                } else if (types.includes('administrative_area_level_1')) {
+                                    state = component.long_name;
+                                } else if (types.includes('postal_code')) {
+                                    pincode = component.long_name;
+                                }
+                            });
+
+                            setSelectedLocation({
+                                address: result.formatted_address,
+                                coordinates,
+                                city: city.trim() || 'Unknown',
+                                state: state.trim() || 'Unknown',
+                                pincode: pincode.trim() || '000000'
+                            });
+                        } else {
+                            console.error('Reverse geocoding failed. Status:', status);
+                            console.error('Error details:', results);
+
+                            // Fallback: Use coordinates as address if geocoding fails
+                            if (status === 'REQUEST_DENIED') {
+                                console.warn('Geocoding API not enabled. Using coordinates as fallback.');
+                                setSelectedLocation({
+                                    address: `Location: ${coordinates.lat.toFixed(6)}, ${coordinates.lng.toFixed(6)}`,
+                                    coordinates,
+                                    city: 'Bangalore',
+                                    state: 'Karnataka',
+                                    pincode: '560001'
+                                });
+                            } else {
+                                // Provide more specific error message for other errors
+                                let errorMessage = 'Unable to get address for your location.';
+                                if (status === 'ZERO_RESULTS') {
+                                    errorMessage += ' No address found for this location.';
+                                } else if (status === 'OVER_QUERY_LIMIT') {
+                                    errorMessage += ' API quota exceeded.';
+                                } else if (status === 'INVALID_REQUEST') {
+                                    errorMessage += ' Invalid request.';
+                                }
+                                alert(errorMessage + ' Please try searching manually.');
+                            }
+                        }
+                        setLoading(false);
+                    }
+                );
             },
             (error) => {
                 console.error('Error getting location:', error);
+                alert('Unable to get your current location. Please try again.');
                 setLoading(false);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 300000
             }
         );
     };

@@ -1,9 +1,16 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { SignupForm } from '../../components/features/auth/SignupForm';
+import { useAuth } from '../../hooks/useAuth';
 import { Truck } from 'lucide-react';
 
 const Signup: React.FC = () => {
+    const { isAuthenticated } = useAuth();
+
+    if (isAuthenticated) {
+        return <Navigate to="/dashboard" replace />;
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-2xl mx-auto">

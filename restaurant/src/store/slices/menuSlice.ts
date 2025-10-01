@@ -19,8 +19,8 @@ const initialState: MenuState = {
 
 export const fetchCategories = createAsyncThunk(
     'menu/fetchCategories',
-    async (restaurantId: string) => {
-        const response = await menuService.getCategories(restaurantId);
+    async (establishmentId: string) => {
+        const response = await menuService.getCategories(establishmentId);
         return response;
     }
 );
@@ -51,8 +51,8 @@ export const deleteCategory = createAsyncThunk(
 
 export const fetchMenuItems = createAsyncThunk(
     'menu/fetchMenuItems',
-    async ({ restaurantId, categoryId }: { restaurantId: string; categoryId?: string }) => {
-        const response = await menuService.getMenuItems(restaurantId, categoryId);
+    async ({ establishmentId, categoryId }: { establishmentId: string; categoryId?: string }) => {
+        const response = await menuService.getMenuItems(establishmentId, categoryId);
         return response;
     }
 );

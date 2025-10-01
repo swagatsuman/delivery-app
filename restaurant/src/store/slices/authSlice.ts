@@ -40,8 +40,8 @@ export const getCurrentUser = createAsyncThunk(
     }
 );
 
-export const updateRestaurantProfile = createAsyncThunk(
-    'auth/updateRestaurantProfile',
+export const updateEstablishmentProfile = createAsyncThunk(
+    'auth/updateEstablishmentProfile',
     async (profileData: any) => {
         const response = await authService.updateProfile(profileData);
         return response;
@@ -59,9 +59,9 @@ const authSlice = createSlice({
             state.user = action.payload;
             state.isAuthenticated = !!action.payload;
         },
-        updateRestaurantStatus: (state, action: PayloadAction<boolean>) => {
-            if (state.user?.restaurantDetails) {
-                state.user.restaurantDetails.operatingHours.isOpen = action.payload;
+        updateEstablishmentStatus: (state, action: PayloadAction<boolean>) => {
+            if (state.user?.establishmentDetails) {
+                state.user.establishmentDetails.operatingHours.isOpen = action.payload;
             }
         }
     },
@@ -118,22 +118,22 @@ const authSlice = createSlice({
                 state.isAuthenticated = false;
             })
             // Update Profile
-            .addCase(updateRestaurantProfile.pending, (state) => {
+            .addCase(updateEstablishmentProfile.pending, (state) => {
                 state.loading = true;
                 state.error = null;
             })
-            .addCase(updateRestaurantProfile.fulfilled, (state, action) => {
+            .addCase(updateEstablishmentProfile.fulfilled, (state, action) => {
                 state.loading = false;
                 if (state.user) {
                     state.user = { ...state.user, ...action.payload };
                 }
             })
-            .addCase(updateRestaurantProfile.rejected, (state, action) => {
+            .addCase(updateEstablishmentProfile.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.error.message || 'Failed to update profile';
             });
     }
 });
 
-export const { clearError, setUser, updateRestaurantStatus } = authSlice.actions;
+export const { clearError, setUser, updateEstablishmentStatus } = authSlice.actions;
 export default authSlice.reducer;

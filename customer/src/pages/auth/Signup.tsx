@@ -122,18 +122,18 @@ const Signup: React.FC = () => {
                                 {...register('password', {
                                     required: 'Password is required',
                                     minLength: {
-                                        value: 8,
-                                        message: 'Password must be at least 8 characters'
+                                        value: 6,
+                                        message: 'Password must be at least 6 characters'
                                     },
                                 })}
                                 error={errors.password?.message}
                             />
                             <button
                                 type="button"
-                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                onClick={() => setShowPassword(!showPassword)}
                                 className="absolute right-3 top-9 p-1 text-secondary-400 hover:text-secondary-600"
                             >
-                                {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                             </button>
                         </div>
 

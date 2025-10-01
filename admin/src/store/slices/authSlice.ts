@@ -17,6 +17,14 @@ export const loginUser = createAsyncThunk(
     }
 );
 
+export const signUpUser = createAsyncThunk(
+    'auth/signUpUser',
+    async ({ name, email, password }: { name: string; email: string; password: string }) => {
+        const response = await authService.signUp(name, email, password);
+        return response.userData;
+    }
+);
+
 export const logoutUser = createAsyncThunk(
     'auth/logoutUser',
     async () => {
@@ -60,6 +68,22 @@ const authSlice = createSlice({
             .addCase(loginUser.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.error.message || 'Login failed';
+                state.isAuthenticated = false;
+            })
+            // Sign Up
+            .addCase(signUpUser.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(signUpUser.fulfilled, (state, action) => {
+                state.loading = false;
+                state.user = action.payload;
+                state.isAuthenticated = true;
+                state.error = null;
+            })
+            .addCase(signUpUser.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.error.message || 'Sign up failed';
                 state.isAuthenticated = false;
             })
             // Logout

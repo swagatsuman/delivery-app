@@ -1,6 +1,6 @@
 export interface User {
     uid: string;
-    role: 'admin' | 'restaurant' | 'customer' | 'delivery_agent';
+    role: 'admin' | 'establishment' | 'customer' | 'delivery_agent';
     email: string;
     phone?: string;
     name: string;
@@ -8,16 +8,17 @@ export interface User {
     createdAt: Date;
     updatedAt: Date;
     profileImage?: string;
-    restaurantDetails?: RestaurantDetails;
+    establishmentDetails?: EstablishmentDetails;
     customerDetails?: CustomerDetails;
     deliveryAgentDetails?: DeliveryAgentDetails;
 }
 
-export interface RestaurantDetails {
+export interface EstablishmentDetails {
     businessName: string;
     ownerName: string;
     gstin: string;
     address: Address;
+    establishmentType: EstablishmentType;
     cuisineTypes: string[];
     operatingHours: {
         open: string;
@@ -32,6 +33,13 @@ export interface RestaurantDetails {
     estimatedDeliveryTime: number;
     totalOrders: number;
     revenue: number;
+    // Type-specific features
+    restaurantFeatures?: RestaurantFeatures;
+    foodTruckFeatures?: FoodTruckFeatures;
+    groceryShopFeatures?: GroceryShopFeatures;
+    bakeryFeatures?: BakeryFeatures;
+    cafeFeatures?: CafeFeatures;
+    cloudKitchenFeatures?: CloudKitchenFeatures;
 }
 
 export interface CustomerDetails {
@@ -77,33 +85,129 @@ export interface Coordinates {
     lng: number;
 }
 
-export interface Restaurant {
+export type EstablishmentType = 'restaurant' | 'food_truck' | 'grocery_shop' | 'bakery' | 'cafe' | 'cloud_kitchen';
+
+export interface Establishment {
     id: string;
     ownerId: string;
     businessName: string;
     description: string;
     images: string[];
     categories: string[];
+    establishmentType: EstablishmentType;
     totalOrders: number;
     revenue: number;
     isOpen: boolean;
     featured: boolean;
     rating: number;
     totalRatings: number;
+    status: 'pending' | 'approved' | 'rejected' | 'suspended';
+    approvedAt?: Date;
+    approvedBy?: string;
+    rejectedReason?: string;
     createdAt: Date;
     updatedAt: Date;
+    // Type-specific features
+    restaurantFeatures?: RestaurantFeatures;
+    foodTruckFeatures?: FoodTruckFeatures;
+    groceryShopFeatures?: GroceryShopFeatures;
+    bakeryFeatures?: BakeryFeatures;
+    cafeFeatures?: CafeFeatures;
+    cloudKitchenFeatures?: CloudKitchenFeatures;
+}
+
+// Restaurant specific features
+export interface RestaurantFeatures {
+    dineInAvailable: boolean;
+    tableReservation: boolean;
+    liveMusic: boolean;
+    outdoorSeating: boolean;
+    parkingAvailable: boolean;
+}
+
+// Food Truck specific features
+export interface FoodTruckFeatures {
+    currentLocation: Coordinates;
+    route: RouteStop[];
+    vehicleDetails: {
+        licensePlate: string;
+        vehicleType: string;
+        capacity: number;
+    };
+    scheduleEnabled: boolean;
+    mobileMenuEnabled: boolean;
+}
+
+export interface RouteStop {
+    location: Coordinates;
+    address: string;
+    arrivalTime: string;
+    departureTime: string;
+    dayOfWeek: string[];
+}
+
+// Grocery Shop specific features
+export interface GroceryShopFeatures {
+    bulkOrdersEnabled: boolean;
+    inventoryManagement: boolean;
+    categoryManagement: boolean;
+    expiryTracking: boolean;
+    wholesaleEnabled: boolean;
+    minimumBulkQuantity: number;
+}
+
+// Bakery specific features
+export interface BakeryFeatures {
+    customOrdersEnabled: boolean;
+    advanceBookingDays: number;
+    specializedItems: string[];
+    cakeCustomization: boolean;
+    decorationServices: boolean;
+    eventCatering: boolean;
+}
+
+// Café specific features
+export interface CafeFeatures {
+    studySpaceAvailable: boolean;
+    wifiAvailable: boolean;
+    workingHours: {
+        studyFriendly: boolean;
+        quietZone: boolean;
+        chargingPorts: boolean;
+    };
+    meetingRoomsAvailable: boolean;
+    casualDining: boolean;
+}
+
+// Cloud Kitchen specific features
+export interface CloudKitchenFeatures {
+    virtualBrands: VirtualBrand[];
+    deliveryOnly: boolean;
+    kitchenCapacity: number;
+    multiCuisineEnabled: boolean;
+    brandManagement: boolean;
+}
+
+export interface VirtualBrand {
+    id: string;
+    name: string;
+    description: string;
+    logo: string;
+    cuisineType: string;
+    isActive: boolean;
+    menu: string[]; // Menu item IDs
 }
 
 export interface Order {
     id: string;
     orderNumber: string;
     customerId: string;
-    restaurantId: string;
+    establishmentId: string;
     deliveryAgentId?: string;
     items: OrderItem[];
     pricing: OrderPricing;
     addresses: {
-        restaurant: Address;
+        establishment: Address;
         delivery: Address;
     };
     status: OrderStatus;
@@ -159,9 +263,10 @@ export interface Payment {
 }
 
 export interface DashboardStats {
-    totalRestaurants: number;
-    pendingRestaurants: number;
-    activeRestaurants: number;
+    totalEstablishments: number;
+    pendingEstablishments: number;
+    approvedEstablishments: number;
+    establishmentsByType: Record<EstablishmentType, number>;
     totalCustomers: number;
     totalDeliveryAgents: number;
     pendingDeliveryAgents: number;
@@ -179,12 +284,12 @@ export interface AuthState {
     error: string | null;
 }
 
-export interface RestaurantState {
-    restaurants: Restaurant[];
-    selectedRestaurant: Restaurant | null;
+export interface EstablishmentState {
+    establishments: Establishment[];
+    selectedEstablishment: Establishment | null;
     loading: boolean;
     error: string | null;
-    filters: RestaurantFilters;
+    filters: EstablishmentFilters;
     pagination: {
         page: number;
         limit: number;
@@ -192,8 +297,9 @@ export interface RestaurantState {
     };
 }
 
-export interface RestaurantFilters {
-    status: 'all' | 'pending' | 'active' | 'inactive' | 'suspended';
+export interface EstablishmentFilters {
+    status: 'all' | 'pending' | 'approved' | 'rejected' | 'suspended';
+    establishmentType: 'all' | EstablishmentType;
     search: string;
     cuisine: string;
     rating: number | null;
@@ -213,7 +319,7 @@ export interface UserState {
 }
 
 export interface UserFilters {
-    role: 'all' | 'restaurant' | 'customer' | 'delivery_agent';
+    role: 'all' | 'establishment' | 'customer' | 'delivery_agent';
     status: 'all' | 'pending' | 'active' | 'inactive' | 'suspended';
     search: string;
 }

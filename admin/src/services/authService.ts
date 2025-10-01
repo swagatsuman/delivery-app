@@ -1,5 +1,6 @@
 import {
     signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
     signOut,
     onAuthStateChanged,
     type User as FirebaseUser
@@ -53,6 +54,29 @@ export const authService = {
             return { user, userData };
         } catch (error: any) {
             throw new Error(error.message || 'Login failed');
+        }
+    },
+
+    async signUp(name: string, email: string, password: string) {
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+
+            // Create user document in Firestore
+            const adminData: User = {
+                uid: user.uid,
+                role: 'admin',
+                email: user.email!,
+                name: name,
+                status: 'active',
+                createdAt: new Date(),
+                updatedAt: new Date()
+            };
+
+            await setDoc(doc(db, 'users', user.uid), adminData);
+            return { user, userData: adminData };
+        } catch (error: any) {
+            throw new Error(error.message || 'Sign up failed');
         }
     },
 

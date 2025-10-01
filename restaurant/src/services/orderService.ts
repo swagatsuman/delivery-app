@@ -47,6 +47,18 @@ export const orderService = {
                             timeline: data.timeline?.map((t: any) => ({
                                 ...t,
                                 timestamp: t.timestamp?.toDate() || new Date()
+                            })) || [],
+                            // Map items from customer app structure
+                            items: data.items?.map((item: any) => ({
+                                menuItemId: item.menuItem?.id || item.id,
+                                name: item.menuItem?.name || item.name,
+                                price: item.menuItem?.price || item.price,
+                                quantity: item.quantity,
+                                customizations: item.customizations?.map((c: any) =>
+                                    typeof c === 'string' ? c : c.name
+                                ) || [],
+                                specialInstructions: item.specialInstructions || '',
+                                images: item.menuItem?.images || []
                             })) || []
                         } as Order;
                     });
@@ -85,6 +97,18 @@ export const orderService = {
                             timeline: data.timeline?.map((t: any) => ({
                                 ...t,
                                 timestamp: t.timestamp?.toDate() || new Date()
+                            })) || [],
+                            // Map items from customer app structure
+                            items: data.items?.map((item: any) => ({
+                                menuItemId: item.menuItem?.id || item.id,
+                                name: item.menuItem?.name || item.name,
+                                price: item.menuItem?.price || item.price,
+                                quantity: item.quantity,
+                                customizations: item.customizations?.map((c: any) =>
+                                    typeof c === 'string' ? c : c.name
+                                ) || [],
+                                specialInstructions: item.specialInstructions || '',
+                                images: item.menuItem?.images || []
                             })) || []
                         } as Order;
                     });
@@ -123,8 +147,8 @@ export const orderService = {
                         timestamp: t.timestamp?.toDate() || new Date()
                     })) || [],
                     // Map customer app data structure to restaurant app expectations
-                    customerName: data.deliveryAddress?.name || 'Customer',
-                    customerPhone: data.deliveryAddress?.phone || 'No phone',
+                    customerName: data.deliveryAddress?.name || data.customerName || 'Customer',
+                    customerPhone: data.deliveryAddress?.phone || data.customerPhone || 'No phone',
                     addresses: {
                         delivery: {
                             label: data.deliveryAddress?.label || '',
@@ -145,7 +169,19 @@ export const orderService = {
                         deliveryFee: data.pricing?.deliveryFee || 0,
                         discount: data.pricing?.discount || 0,
                         total: data.pricing?.total || 0
-                    }
+                    },
+                    // Map items from customer app structure
+                    items: data.items?.map((item: any) => ({
+                        menuItemId: item.menuItem?.id || item.id,
+                        name: item.menuItem?.name || item.name,
+                        price: item.menuItem?.price || item.price,
+                        quantity: item.quantity,
+                        customizations: item.customizations?.map((c: any) =>
+                            typeof c === 'string' ? c : c.name
+                        ) || [],
+                        specialInstructions: item.specialInstructions || '',
+                        images: item.menuItem?.images || []
+                    })) || []
                 } as Order;
             });
 
@@ -256,7 +292,19 @@ export const orderService = {
                     deliveryFee: data.pricing?.deliveryFee || 0,
                     discount: data.pricing?.discount || 0,
                     total: data.pricing?.total || 0
-                }
+                },
+                // Map items from customer app structure
+                items: data.items?.map((item: any) => ({
+                    menuItemId: item.menuItem?.id || item.id,
+                    name: item.menuItem?.name || item.name,
+                    price: item.menuItem?.price || item.price,
+                    quantity: item.quantity,
+                    customizations: item.customizations?.map((c: any) =>
+                        typeof c === 'string' ? c : c.name
+                    ) || [],
+                    specialInstructions: item.specialInstructions || '',
+                    images: item.menuItem?.images || []
+                })) || []
             } as Order;
         } catch (error: any) {
             console.error('Error fetching order details:', error);
@@ -323,8 +371,8 @@ export const orderService = {
                             timestamp: t.timestamp?.toDate() || new Date()
                         })) || [],
                         // Map customer app data structure to restaurant app expectations
-                        customerName: data.deliveryAddress?.name || 'Customer',
-                        customerPhone: data.deliveryAddress?.phone || 'No phone',
+                        customerName: data.deliveryAddress?.name || data.customerName || 'Customer',
+                        customerPhone: data.deliveryAddress?.phone || data.customerPhone || 'No phone',
                         addresses: {
                             delivery: {
                                 label: data.deliveryAddress?.label || '',
@@ -345,7 +393,19 @@ export const orderService = {
                             deliveryFee: data.pricing?.deliveryFee || 0,
                             discount: data.pricing?.discount || 0,
                             total: data.pricing?.total || 0
-                        }
+                        },
+                        // Map items from customer app structure
+                        items: data.items?.map((item: any) => ({
+                            menuItemId: item.menuItem?.id || item.id,
+                            name: item.menuItem?.name || item.name,
+                            price: item.menuItem?.price || item.price,
+                            quantity: item.quantity,
+                            customizations: item.customizations?.map((c: any) =>
+                                typeof c === 'string' ? c : c.name
+                            ) || [],
+                            specialInstructions: item.specialInstructions || '',
+                            images: item.menuItem?.images || []
+                        })) || []
                     } as Order;
                 });
                 callback(orders);
@@ -398,7 +458,19 @@ export const orderService = {
                                 deliveryFee: data.pricing?.deliveryFee || 0,
                                 discount: data.pricing?.discount || 0,
                                 total: data.pricing?.total || 0
-                            }
+                            },
+                            // Map items from customer app structure
+                            items: data.items?.map((item: any) => ({
+                                menuItemId: item.menuItem?.id || item.id,
+                                name: item.menuItem?.name || item.name,
+                                price: item.menuItem?.price || item.price,
+                                quantity: item.quantity,
+                                customizations: item.customizations?.map((c: any) =>
+                                    typeof c === 'string' ? c : c.name
+                                ) || [],
+                                specialInstructions: item.specialInstructions || '',
+                                images: item.menuItem?.images || []
+                            })) || []
                         } as Order;
                     });
                     // Sort client-side

@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard,
     Store,
@@ -8,12 +8,33 @@ import {
     ShoppingBag,
     BarChart3,
     Settings,
-    ChefHat
+    ChefHat,
+    Building2,
+    Coffee,
+    Car,
+    ShoppingCart,
+    Cake,
+    ChevronDown
 } from 'lucide-react';
 
-const sidebarItems = [
+interface SidebarItem {
+    name: string;
+    href: string;
+    icon: React.ComponentType<any>;
+    subItems?: SidebarItem[];
+}
+
+const sidebarItems: SidebarItem[] = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Restaurants', href: '/restaurants', icon: Store },
+    { name: 'Establishments', href: '/establishments', icon: Building2, subItems: [
+        { name: 'All Establishments', href: '/establishments', icon: Building2 },
+        { name: 'Restaurants', href: '/establishments?type=restaurant', icon: ChefHat },
+        { name: 'Food Trucks', href: '/establishments?type=food_truck', icon: Car },
+        { name: 'Grocery Shops', href: '/establishments?type=grocery_shop', icon: ShoppingCart },
+        { name: 'Bakeries', href: '/establishments?type=bakery', icon: Cake },
+        { name: 'Cafés', href: '/establishments?type=cafe', icon: Coffee },
+        { name: 'Cloud Kitchens', href: '/establishments?type=cloud_kitchen', icon: Store }
+    ]},
     { name: 'Users', href: '/users', icon: Users },
     { name: 'Delivery Agents', href: '/delivery-agents', icon: Truck },
     { name: 'Orders', href: '/orders', icon: ShoppingBag },
@@ -22,8 +43,53 @@ const sidebarItems = [
 ];
 
 export const Sidebar: React.FC = () => {
+    const [expandedItems, setExpandedItems] = React.useState<string[]>([]);
+    const location = useLocation();
+
+    const toggleExpanded = (itemName: string) => {
+        setExpandedItems(prev =>
+            prev.includes(itemName)
+                ? prev.filter(name => name !== itemName)
+                : [...prev, itemName]
+        );
+    };
+
+    // Function to check if a submenu item is active
+    const isSubItemActive = (href: string) => {
+        const url = new URL(href, window.location.origin);
+        const currentPath = location.pathname;
+        const currentSearch = location.search;
+
+        // Check if paths match
+        if (url.pathname !== currentPath) {
+            return false;
+        }
+
+        // If the href has query parameters, check if they match
+        if (url.search) {
+            const urlParams = new URLSearchParams(url.search);
+            const currentParams = new URLSearchParams(currentSearch);
+
+            // Check if all URL params match current params
+            for (const [key, value] of urlParams) {
+                if (currentParams.get(key) !== value) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // If href has no query params, it's active only if current URL also has no relevant query params
+        // For /establishments, it should be active only when there are no type filters
+        if (currentPath === '/establishments') {
+            return !currentSearch || !new URLSearchParams(currentSearch).has('type');
+        }
+
+        return true;
+    };
+
     return (
-        <div className="w-64 bg-surface shadow-swiggy border-r border-secondary-200 h-screen sticky top-0">
+        <div className="w-64 bg-surface shadow-swiggy border-r border-secondary-200 h-auto sticky top-0">
             {/* Logo */}
             <div className="p-6 border-b border-secondary-200">
                 <div className="flex items-center space-x-3">
@@ -42,15 +108,47 @@ export const Sidebar: React.FC = () => {
                 <ul className="space-y-2">
                     {sidebarItems.map((item) => (
                         <li key={item.name}>
-                            <NavLink
-                                to={item.href}
-                                className={({ isActive }) =>
-                                    `sidebar-item ${isActive ? 'sidebar-item-active' : ''}`
-                                }
-                            >
-                                <item.icon className="mr-3 h-5 w-5" />
-                                <span className="font-medium">{item.name}</span>
-                            </NavLink>
+                            {item.subItems ? (
+                                <div>
+                                    <button
+                                        onClick={() => toggleExpanded(item.name)}
+                                        className="sidebar-item w-full justify-between"
+                                    >
+                                        <div className="flex items-center">
+                                            <item.icon className="mr-3 h-5 w-5" />
+                                            <span className="font-medium">{item.name}</span>
+                                        </div>
+                                        <ChevronDown className={`h-4 w-4 transition-transform ${expandedItems.includes(item.name) ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    {expandedItems.includes(item.name) && (
+                                        <ul className="ml-6 mt-2 space-y-1">
+                                            {item.subItems.map((subItem) => (
+                                                <li key={subItem.name}>
+                                                    <NavLink
+                                                        to={subItem.href}
+                                                        className={() =>
+                                                            `sidebar-item text-sm ${isSubItemActive(subItem.href) ? 'sidebar-item-active' : ''}`
+                                                        }
+                                                    >
+                                                        <subItem.icon className="mr-3 h-4 w-4" />
+                                                        <span className="font-medium">{subItem.name}</span>
+                                                    </NavLink>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                            ) : (
+                                <NavLink
+                                    to={item.href}
+                                    className={({ isActive }) =>
+                                        `sidebar-item ${isActive ? 'sidebar-item-active' : ''}`
+                                    }
+                                >
+                                    <item.icon className="mr-3 h-5 w-5" />
+                                    <span className="font-medium">{item.name}</span>
+                                </NavLink>
+                            )}
                         </li>
                     ))}
                 </ul>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card } from '../../ui/Card';
 import { Button } from '../../ui/Button';
+import { Icon } from '../../ui/Icon';
 import { Badge } from '../../ui/Badge';
 import type { MenuItem } from '../../../types';
 import { formatCurrency, getFoodTypeColor, getSpiceLevelColor } from '../../../utils/helpers';
@@ -73,7 +74,7 @@ export const MenuItemList: React.FC<MenuItemListProps> = ({
                     </Button>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {menuItems.map((item) => (
                         <div key={item.id} className="border border-secondary-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
                             {/* Item Image */}
@@ -122,13 +123,13 @@ export const MenuItemList: React.FC<MenuItemListProps> = ({
                                         {item.name}
                                     </h3>
                                     <div className="flex space-x-1 ml-2">
-                                        <Button
+                                        <Icon
                                             size="sm"
                                             variant="ghost"
                                             onClick={() => onEditItem(item)}
                                             icon={<Edit className="h-3 w-3" />}
                                         />
-                                        <Button
+                                        <Icon
                                             size="sm"
                                             variant="ghost"
                                             onClick={() => onDeleteItem(item.id)}
@@ -136,10 +137,6 @@ export const MenuItemList: React.FC<MenuItemListProps> = ({
                                         />
                                     </div>
                                 </div>
-
-                                <p className="text-sm text-secondary-600 mb-3 line-clamp-2">
-                                    {item.description}
-                                </p>
 
                                 {/* Price */}
                                 <div className="flex items-center space-x-2 mb-3">
@@ -161,10 +158,6 @@ export const MenuItemList: React.FC<MenuItemListProps> = ({
                             item.type === 'non-veg' ? 'bg-red-500' : 'bg-yellow-500'
                     }`}></span>
                                         {item.type}
-                                    </Badge>
-
-                                    <Badge variant="default" size="sm">
-                                        {item.spiceLevel}
                                     </Badge>
 
                                     <Badge variant="default" size="sm">
