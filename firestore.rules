@@ -1,0 +1,104 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isOwner(userId);
+      allow delete: if false; // No deletions
+    }
+
+    // Delivery Agents collection
+    match /deliveryAgents/{agentId} {
+      // Anyone can read delivery agent info (for customer to see agent details)
+      allow read: if isAuthenticated();
+
+      // Only the agent can update their own data (including location)
+      allow update: if isOwner(agentId);
+
+      // Only the agent can create their profile
+      allow create: if isOwner(agentId);
+
+      // No deletions
+      allow delete: if false;
+    }
+
+    // Orders collection
+    match /orders/{orderId} {
+      // Allow read if:
+      // - User is the customer who placed the order
+      // - User is the restaurant owner
+      // - User is the assigned delivery agent
+      // - User is admin
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.customerId == request.auth.uid ||
+        resource.data.restaurantId == request.auth.uid ||
+        resource.data.establishmentId == request.auth.uid ||
+        resource.data.deliveryAgentId == request.auth.uid ||
+        getUserRole() == 'admin'
+      );
+
+      // Allow create for authenticated users (customers)
+      allow create: if isAuthenticated();
+
+      // Allow update if:
+      // - User is the restaurant owner (for status updates)
+      // - User is the assigned delivery agent (for delivery status)
+      // - User is admin
+      allow update: if isAuthenticated() && (
+        resource.data.restaurantId == request.auth.uid ||
+        resource.data.establishmentId == request.auth.uid ||
+        resource.data.deliveryAgentId == request.auth.uid ||
+        getUserRole() == 'admin'
+      );
+
+      // No deletions except by admin
+      allow delete: if getUserRole() == 'admin';
+    }
+
+    // Establishments/Restaurants collection
+    match /establishments/{establishmentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isOwner(establishmentId) || getUserRole() == 'admin';
+      allow delete: if getUserRole() == 'admin';
+    }
+
+    // Ratings collection
+    match /ratings/{ratingId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // Settings collection
+    match /settings/{settingId} {
+      // Anyone can read settings (including unauthenticated for public settings)
+      allow read: if true;
+      // Only admins can update settings
+      allow write: if isAuthenticated() && getUserRole() == 'admin';
+    }
+
+    // Default: deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

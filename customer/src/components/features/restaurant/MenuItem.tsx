@@ -88,7 +88,7 @@ export const MenuItem: React.FC<MenuItemProps> = ({ item, restaurantId }) => {
                         {/* Recommended Badge */}
                         {item.isRecommended && (
                             <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded-full font-medium">
-                                ⭐ Bestseller
+                                Bestseller
                             </span>
                         )}
                     </div>

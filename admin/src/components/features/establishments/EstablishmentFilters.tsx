@@ -89,27 +89,17 @@ export const EstablishmentFilters: React.FC<EstablishmentFiltersProps> = ({
                         <label className="block text-sm font-medium text-secondary-700 mb-2">
                             Status
                         </label>
-                        <div className="space-y-2">
-                            {[
-                                { value: 'all', label: 'All Status' },
-                                { value: ESTABLISHMENT_STATUS.PENDING, label: 'Pending' },
-                                { value: ESTABLISHMENT_STATUS.APPROVED, label: 'Approved' },
-                                { value: ESTABLISHMENT_STATUS.REJECTED, label: 'Rejected' },
-                                { value: ESTABLISHMENT_STATUS.SUSPENDED, label: 'Suspended' }
-                            ].map((status) => (
-                                <label key={status.value} className="flex items-center">
-                                    <input
-                                        type="radio"
-                                        name="status"
-                                        value={status.value}
-                                        checked={filters.status === status.value}
-                                        onChange={(e) => handleStatusChange(e.target.value)}
-                                        className="h-4 w-4 text-primary-600 border-secondary-300 focus:ring-primary-500"
-                                    />
-                                    <span className="ml-2 text-sm text-secondary-700">{status.label}</span>
-                                </label>
-                            ))}
-                        </div>
+                        <select
+                            value={filters.status}
+                            onChange={(e) => handleStatusChange(e.target.value)}
+                            className="w-full border border-secondary-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        >
+                            <option value="all">All Status</option>
+                            <option value={ESTABLISHMENT_STATUS.PENDING}>Pending</option>
+                            <option value={ESTABLISHMENT_STATUS.APPROVED}>Approved</option>
+                            <option value={ESTABLISHMENT_STATUS.REJECTED}>Rejected</option>
+                            <option value={ESTABLISHMENT_STATUS.SUSPENDED}>Suspended</option>
+                        </select>
                     </div>
 
                     {/* Establishment Type Filter */}
@@ -117,27 +107,18 @@ export const EstablishmentFilters: React.FC<EstablishmentFiltersProps> = ({
                         <label className="block text-sm font-medium text-secondary-700 mb-2">
                             Establishment Type
                         </label>
-                        <div className="space-y-2">
-                            {[
-                                { value: 'all', label: 'All Types' },
-                                ...Object.values(ESTABLISHMENT_TYPES).map(type => ({
-                                    value: type,
-                                    label: getEstablishmentTypeDisplay(type)
-                                }))
-                            ].map((type) => (
-                                <label key={type.value} className="flex items-center">
-                                    <input
-                                        type="radio"
-                                        name="establishmentType"
-                                        value={type.value}
-                                        checked={filters.establishmentType === type.value}
-                                        onChange={(e) => handleEstablishmentTypeChange(e.target.value)}
-                                        className="h-4 w-4 text-primary-600 border-secondary-300 focus:ring-primary-500"
-                                    />
-                                    <span className="ml-2 text-sm text-secondary-700">{type.label}</span>
-                                </label>
+                        <select
+                            value={filters.establishmentType}
+                            onChange={(e) => handleEstablishmentTypeChange(e.target.value)}
+                            className="w-full border border-secondary-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        >
+                            <option value="all">All Types</option>
+                            {Object.values(ESTABLISHMENT_TYPES).map(type => (
+                                <option key={type} value={type}>
+                                    {getEstablishmentTypeDisplay(type)}
+                                </option>
                             ))}
-                        </div>
+                        </select>
                     </div>
 
                     {/* Cuisine Filter */}

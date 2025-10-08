@@ -1,23 +1,114 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { OrderHistoryCard } from '../../components/features/profile/OrderHistoryCard';
 import { EmptyState } from '../../components/common/EmptyState';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
-import { fetchOrders } from '../../store/slices/orderSlice';
 import { addToCart, clearCart } from '../../store/slices/cartSlice';
-import type { Order } from '../../types';
+import { collection, query, where, onSnapshot, orderBy, getDoc, doc } from 'firebase/firestore';
+import { db } from '../../config/firebase';
+import type { Order, Restaurant } from '../../types';
 
 const OrderHistory: React.FC = () => {
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
-    const { orders, loading } = useAppSelector(state => state.order);
     const { user } = useAppSelector(state => state.auth);
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [loading, setLoading] = useState(true);
 
+    // Real-time listener for user's orders
     useEffect(() => {
-        if (user?.uid) {
-            dispatch(fetchOrders(user.uid));
-        }
-    }, [dispatch, user]);
+        if (!user?.uid) return;
+
+        console.log('Setting up real-time listener for user orders:', user.uid);
+        setLoading(true);
+
+        const ordersQuery = query(
+            collection(db, 'orders'),
+            where('userId', '==', user.uid),
+            orderBy('createdAt', 'desc')
+        );
+
+        const unsubscribe = onSnapshot(
+            ordersQuery,
+            async (snapshot) => {
+                const ordersData: Order[] = await Promise.all(
+                    snapshot.docs.map(async (orderDoc) => {
+                        const data = orderDoc.data();
+
+                        // Fetch restaurant details if not in order or if missing name
+                        let restaurantData = data.restaurant;
+                        if ((!restaurantData || !restaurantData.name) && data.restaurantId) {
+                            try {
+                                const restaurantDoc = await getDoc(doc(db, 'establishments', data.restaurantId));
+                                if (restaurantDoc.exists()) {
+                                    const restData = restaurantDoc.data();
+                                    restaurantData = {
+                                        id: restaurantDoc.id,
+                                        name: restData.businessName || restData.name || restData.restaurantName || data.restaurantName || 'Restaurant',
+                                        description: restData.description || '',
+                                        images: restData.images || [],
+                                        cuisineTypes: restData.cuisineTypes || [],
+                                        rating: restData.rating || 0,
+                                        totalRatings: restData.totalRatings || 0,
+                                        deliveryTime: restData.deliveryTime || '30-40 mins',
+                                        deliveryFee: restData.deliveryFee || 30,
+                                        minimumOrder: restData.minimumOrder || 0,
+                                        address: restData.address || {},
+                                        isOpen: true,
+                                        featured: false
+                                    } as Restaurant;
+                                }
+                            } catch (error) {
+                                console.error('Error fetching restaurant for order:', error);
+                            }
+                        }
+
+                        // If still no restaurant data, use restaurantName from order
+                        if (!restaurantData && data.restaurantName) {
+                            restaurantData = {
+                                id: data.restaurantId || '',
+                                name: data.restaurantName,
+                                description: '',
+                                images: [],
+                                cuisineTypes: [],
+                                rating: 0,
+                                totalRatings: 0,
+                                deliveryTime: '30-40 mins',
+                                deliveryFee: 0,
+                                minimumOrder: 0,
+                                address: data.restaurantAddress || {},
+                                isOpen: true,
+                                featured: false
+                            } as Restaurant;
+                        }
+
+                        return {
+                            id: orderDoc.id,
+                            ...data,
+                            restaurant: restaurantData,
+                            createdAt: data.createdAt?.toDate() || new Date(),
+                            updatedAt: data.updatedAt?.toDate() || new Date(),
+                            estimatedDeliveryTime: data.estimatedDeliveryTime?.toDate() || new Date(),
+                            actualDeliveryTime: data.actualDeliveryTime?.toDate()
+                        } as Order;
+                    })
+                );
+
+                console.log('Received real-time orders update:', ordersData.length);
+                setOrders(ordersData);
+                setLoading(false);
+            },
+            (error) => {
+                console.error('Error listening to orders:', error);
+                setLoading(false);
+            }
+        );
+
+        return () => {
+            console.log('Cleaning up orders listener');
+            unsubscribe();
+        };
+    }, [user?.uid]);
 
     const handleReorder = (order: Order) => {
         // Clear current cart and add all items from the order

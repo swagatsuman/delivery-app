@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, Clock, Truck, Heart } from 'lucide-react';
+import { Star, Clock, Heart } from 'lucide-react';
 import type { Restaurant } from '../../../types';
 
 interface RestaurantHeaderProps {
@@ -11,12 +11,20 @@ export const RestaurantHeader: React.FC<RestaurantHeaderProps> = ({ restaurant }
         <div className="bg-surface">
             {/* Restaurant Image */}
             <div className="relative h-48 overflow-hidden">
-                <img
-                    src={restaurant.images[0]}
-                    alt={restaurant.name}
-                    className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                {restaurant.images && restaurant.images.length > 0 ? (
+                    <>
+                        <img
+                            src={restaurant.images[0]}
+                            alt={restaurant.name}
+                            className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                    </>
+                ) : (
+                    <div className="w-full h-full bg-secondary-200 flex items-center justify-center">
+                        <span className="text-6xl">🍽️</span>
+                    </div>
+                )}
 
                 {/* Favorite Button */}
                 <button className="absolute top-4 right-4 p-2 bg-white/90 rounded-full">
@@ -52,13 +60,6 @@ export const RestaurantHeader: React.FC<RestaurantHeaderProps> = ({ restaurant }
               {restaurant.deliveryTime}
             </span>
                     </div>
-
-                    <div className="flex items-center space-x-1">
-                        <Truck className="h-4 w-4 text-secondary-500" />
-                        <span className="text-sm text-secondary-600">
-              ₹{restaurant.deliveryFee === 0 ? 'Free' : restaurant.deliveryFee}
-            </span>
-                    </div>
                 </div>
 
                 {/* Cuisines */}
@@ -77,15 +78,6 @@ export const RestaurantHeader: React.FC<RestaurantHeaderProps> = ({ restaurant }
             </span>
                     )}
                 </div>
-
-                {/* Minimum Order */}
-                {restaurant.minimumOrder > 0 && (
-                    <div className="mt-3 p-2 bg-warning-50 border border-warning-200 rounded-lg">
-                        <p className="text-sm text-warning-800">
-                            Minimum order: ₹{restaurant.minimumOrder}
-                        </p>
-                    </div>
-                )}
 
                 {/* Offers */}
                 {restaurant.offers && restaurant.offers.length > 0 && (

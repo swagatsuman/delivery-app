@@ -4,6 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useAppDispatch, useAppSelector } from './useAppDispatch';
 import { setUser } from '../store/slices/authSlice';
 import { auth, db } from '../config/firebase';
+import { authService } from '../services/authService';
 import type { User } from '../types';
 
 export const useAuth = () => {
@@ -26,6 +27,15 @@ export const useAuth = () => {
                         const agentDoc = await getDoc(doc(db, 'deliveryAgents', firebaseUser.uid));
                         if (agentDoc.exists()) {
                             deliveryAgentDetails = agentDoc.data();
+
+                            // Calculate stats from orders and ratings
+                            const stats = await authService.calculateAgentStats(firebaseUser.uid);
+
+                            // Merge stats with delivery agent details
+                            deliveryAgentDetails = {
+                                ...deliveryAgentDetails,
+                                ...stats
+                            };
                         }
 
                         dispatch(setUser({

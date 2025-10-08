@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layout } from '../../components/layout/Layout';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -10,6 +9,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { fetchOrderDetails, updateOrderStatus } from '../../store/slices/orderSlice';
 import { orderService } from '../../services/orderService';
 import { formatRelativeTime, formatCurrency, formatDate } from '../../utils/helpers';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 import {
     ArrowLeft,
     Clock,
@@ -23,6 +24,21 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+// Mobile TopHeader component
+const TopHeader: React.FC<{ title: string; onBack: () => void }> = ({ title, onBack }) => (
+    <div className="sticky top-0 z-10 bg-surface border-b border-secondary-200 px-4 py-3">
+        <div className="flex items-center space-x-3">
+            <button
+                onClick={onBack}
+                className="p-2 -ml-2 hover:bg-secondary-100 rounded-lg transition-colors"
+            >
+                <ArrowLeft className="h-5 w-5 text-secondary-700" />
+            </button>
+            <h1 className="text-lg font-semibold text-secondary-900 truncate">{title}</h1>
+        </div>
+    </div>
+);
+
 const OrderDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
@@ -30,6 +46,7 @@ const OrderDetail: React.FC = () => {
     const { user } = useAuth();
     const { selectedOrder, loading, error } = useAppSelector(state => state.orders);
     const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const [agentCommission, setAgentCommission] = useState<number>(80); // Default 80%
 
     useEffect(() => {
         if (id) {
@@ -49,6 +66,24 @@ const OrderDetail: React.FC = () => {
                 }
             );
         }
+    }, []);
+
+    // Fetch delivery settings for commission calculation
+    useEffect(() => {
+        const fetchDeliverySettings = async () => {
+            try {
+                const settingsDoc = await getDoc(doc(db, 'settings', 'delivery'));
+                if (settingsDoc.exists()) {
+                    const settings = settingsDoc.data();
+                    setAgentCommission(settings.agentCommissionPercentage || 80);
+                }
+            } catch (error) {
+                console.error('Error fetching delivery settings:', error);
+                // Use default 80% if error
+            }
+        };
+
+        fetchDeliverySettings();
     }, []);
 
     const handleStatusUpdate = async (status: string) => {
@@ -74,13 +109,14 @@ const OrderDetail: React.FC = () => {
         }
     };
 
-    const getNextAction = (currentStatus: string) => {
+    const getNextAction = (deliveryStatus: string) => {
         const actions = {
             'assigned': { status: 'picked_up', label: 'Mark as Picked Up', color: 'primary' },
             'picked_up': { status: 'on_the_way', label: 'Start Delivery', color: 'primary' },
-            'on_the_way': { status: 'delivered', label: 'Mark as Delivered', color: 'success' }
+            'on_the_way': { status: 'delivered', label: 'Mark as Delivered', color: 'success' },
+            'out_for_delivery': { status: 'delivered', label: 'Mark as Delivered', color: 'success' }
         };
-        return actions[currentStatus as keyof typeof actions];
+        return actions[deliveryStatus as keyof typeof actions];
     };
 
     const openDirections = (address: any) => {
@@ -92,16 +128,18 @@ const OrderDetail: React.FC = () => {
 
     if (loading) {
         return (
-            <Layout title="Order Details">
+            <div className="min-h-screen bg-background">
+                <TopHeader title="Order Details" onBack={() => navigate('/orders')} />
                 <Loading fullScreen text="Loading order details..." />
-            </Layout>
+            </div>
         );
     }
 
     if (!selectedOrder) {
         return (
-            <Layout title="Order Details">
-                <div className="flex items-center justify-center h-96">
+            <div className="min-h-screen bg-background">
+                <TopHeader title="Order Details" onBack={() => navigate('/orders')} />
+                <div className="flex items-center justify-center h-96 px-4">
                     <div className="text-center">
                         <AlertCircle className="h-16 w-16 text-error-400 mx-auto mb-4" />
                         <h3 className="text-lg font-medium text-secondary-900 mb-2">Order Not Found</h3>
@@ -111,59 +149,63 @@ const OrderDetail: React.FC = () => {
                         </Button>
                     </div>
                 </div>
-            </Layout>
+            </div>
         );
     }
 
-    const nextAction = getNextAction(selectedOrder.status);
+    const deliveryStatus = selectedOrder.deliveryStatus || 'assigned';
+    const nextAction = getNextAction(deliveryStatus);
+
+    // Don't show "Mark as Picked Up" button until food is ready
+    const canShowPickupButton = deliveryStatus === 'assigned' && selectedOrder.status !== 'ready';
+    const shouldHideButton = canShowPickupButton;
 
     return (
-        <Layout
-            title={`Order #${selectedOrder.orderNumber}`}
-            actions={
-                <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => navigate('/orders')}
-                    icon={<ArrowLeft className="h-4 w-4" />}
-                >
-                    Back to Orders
-                </Button>
-            }
-        >
-            <div className="p-6 space-y-6">
+        <div className="min-h-screen bg-background">
+            <TopHeader title={`Order #${selectedOrder.orderNumber}`} onBack={() => navigate('/orders')} />
+            <div className="p-4 space-y-4 pb-20">
                 {/* Order Header */}
                 <Card padding="md">
-                    <div className="flex items-start justify-between mb-6">
-                        <div>
-                            <h2 className="text-2xl font-bold text-secondary-900 mb-2">
-                                Order #{selectedOrder.orderNumber}
-                            </h2>
-                            <div className="flex items-center space-x-4">
-                                <Badge variant={
-                                    selectedOrder.status === 'delivered' ? 'success' :
-                                        selectedOrder.status === 'cancelled' ? 'error' :
-                                            selectedOrder.status === 'on_the_way' ? 'warning' : 'info'
-                                }>
-                                    {selectedOrder.status.replace('_', ' ').toUpperCase()}
-                                </Badge>
-                                <span className="text-sm text-secondary-600">
-                                    Placed {formatRelativeTime(selectedOrder.createdAt)}
-                                </span>
-                            </div>
+                    <div className="mb-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <Badge variant={
+                                selectedOrder.status === 'delivered' ? 'success' :
+                                    selectedOrder.status === 'cancelled' ? 'error' :
+                                        selectedOrder.status === 'on_the_way' ? 'warning' : 'info'
+                            }>
+                                {selectedOrder.status.replace('_', ' ').toUpperCase()}
+                            </Badge>
+                            <span className="text-xs text-secondary-600">
+                                {formatRelativeTime(selectedOrder.createdAt)}
+                            </span>
                         </div>
-                        <div className="text-right">
-                            <p className="text-3xl font-bold text-secondary-900">
-                                {formatCurrency(selectedOrder.pricing.total)}
-                            </p>
-                            <p className="text-sm text-secondary-500">
-                                Delivery Fee: {formatCurrency(selectedOrder.deliveryFee)}
-                            </p>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-secondary-600">Total Amount</p>
+                                <p className="text-2xl font-bold text-secondary-900">
+                                    {formatCurrency(selectedOrder.pricing.total)}
+                                </p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-sm text-secondary-600">Your Earnings</p>
+                                <p className="text-lg font-bold text-success-600">
+                                    {formatCurrency(selectedOrder.deliveryFee * (agentCommission / 100))}
+                                </p>
+                            </div>
                         </div>
                     </div>
 
                     {/* Action Button */}
-                    {nextAction && (
+                    {shouldHideButton ? (
+                        <div className="bg-warning-50 border border-warning-200 rounded-lg p-4 text-center">
+                            <p className="text-sm text-warning-700 font-medium">
+                                Waiting for restaurant to prepare food
+                            </p>
+                            <p className="text-xs text-warning-600 mt-1">
+                                You can pick up once the status is "Ready"
+                            </p>
+                        </div>
+                    ) : nextAction && (
                         <div className="flex space-x-3">
                             <Button
                                 variant={nextAction.color as any}
@@ -187,16 +229,16 @@ const OrderDetail: React.FC = () => {
                     )}
                 </Card>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Addresses */}
-                    <div className="lg:col-span-2 space-y-6">
+                <div className="space-y-4">
                         {/* Restaurant Address */}
                         <Card title="Pickup Location" padding="md">
                             <div className="flex items-start justify-between">
                                 <div className="flex items-start space-x-3">
                                     <MapPin className="h-5 w-5 text-secondary-400 mt-1" />
                                     <div>
-                                        <p className="font-medium text-secondary-900">Restaurant</p>
+                                        <p className="font-medium text-secondary-900">
+                                            {(selectedOrder as any).restaurant?.name || (selectedOrder as any).restaurantName || 'Restaurant'}
+                                        </p>
                                         <p className="text-sm text-secondary-600 mt-1">
                                             {selectedOrder.addresses.restaurant.street}<br />
                                             {selectedOrder.addresses.restaurant.city}, {selectedOrder.addresses.restaurant.state}<br />
@@ -248,8 +290,29 @@ const OrderDetail: React.FC = () => {
                                 {selectedOrder.items && selectedOrder.items.length > 0 ? (
                                     selectedOrder.items.map((item, index) => (
                                         <div key={index} className="flex items-start space-x-4 p-4 border border-secondary-200 rounded-lg">
-                                            <div className="flex-shrink-0 w-16 h-16 bg-secondary-100 rounded-lg flex items-center justify-center">
-                                                <Package className="h-6 w-6 text-secondary-400" />
+                                            <div className="flex-shrink-0 w-16 h-16 bg-secondary-100 rounded-lg overflow-hidden">
+                                                {item.images && item.images.length > 0 ? (
+                                                    <img
+                                                        src={item.images[0]}
+                                                        alt={item.name}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            e.currentTarget.style.display = 'none';
+                                                            const parent = e.currentTarget.parentElement;
+                                                            if (parent) {
+                                                                parent.classList.add('flex', 'items-center', 'justify-center');
+                                                                const icon = document.createElement('div');
+                                                                icon.className = 'flex items-center justify-center';
+                                                                icon.innerHTML = '<svg class="h-6 w-6 text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>';
+                                                                parent.appendChild(icon);
+                                                            }
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        <Package className="h-6 w-6 text-secondary-400" />
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="flex-1">
                                                 <h4 className="font-medium text-secondary-900">{item.name || 'Item'}</h4>
@@ -410,7 +473,7 @@ const OrderDetail: React.FC = () => {
                                 <div className="flex justify-between">
                                     <span className="text-secondary-600">Your Earnings:</span>
                                     <span className="text-success-600 font-semibold">
-                                        {formatCurrency(selectedOrder.deliveryFee * 0.8)} {/* 80% commission */}
+                                        {formatCurrency(selectedOrder.deliveryFee * (agentCommission / 100))} ({agentCommission}% commission)
                                     </span>
                                 </div>
                             </div>
@@ -424,10 +487,9 @@ const OrderDetail: React.FC = () => {
                                 </p>
                             </Card>
                         )}
-                    </div>
                 </div>
             </div>
-        </Layout>
+        </div>
     );
 };
 

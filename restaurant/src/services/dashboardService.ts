@@ -14,8 +14,10 @@ import type { DashboardStats, Order, Restaurant } from '../types';
 export const dashboardService = {
     async getDashboardStats(restaurantId: string): Promise<DashboardStats> {
         try {
-            // Fetch restaurant details from restaurants collection
-            const restaurantDoc = await getDoc(doc(db, 'restaurants', restaurantId));
+            console.log('Fetching dashboard stats for restaurant:', restaurantId);
+
+            // Fetch restaurant details from establishments collection
+            const restaurantDoc = await getDoc(doc(db, 'establishments', restaurantId));
             const restaurant = restaurantDoc.exists() ? restaurantDoc.data() as Restaurant : null;
 
             // Fetch all orders for the restaurant
@@ -48,9 +50,18 @@ export const dashboardService = {
             const menuItemsSnapshot = await getDocs(menuItemsQuery);
             const totalMenuItems = menuItemsSnapshot.size;
 
-            // Get restaurant ratings and reviews from restaurant document
-            const averageRating = restaurant?.rating || 0;
-            const totalReviews = restaurant?.totalRatings || 0;
+            // Get food ratings from ratings collection
+            const ratingsQuery = query(
+                collection(db, 'ratings'),
+                where('restaurantId', '==', restaurantId)
+            );
+            const ratingsSnapshot = await getDocs(ratingsQuery);
+            const ratings = ratingsSnapshot.docs.map(doc => doc.data());
+
+            const totalReviews = ratings.length;
+            const averageRating = totalReviews > 0
+                ? ratings.reduce((sum, rating) => sum + (rating.foodRating || 0), 0) / totalReviews
+                : 0;
 
             return {
                 todayOrders: todayOrders.length,

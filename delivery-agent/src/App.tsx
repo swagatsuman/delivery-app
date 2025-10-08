@@ -4,12 +4,13 @@ import { Provider } from 'react-redux';
 import { Toaster } from 'react-hot-toast';
 import { store } from './store';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
+import { MobileLayout } from './components/layout/MobileLayout';
 import { Loading } from './components/ui/Loading';
 
 // Lazy load pages
 const Login = lazy(() => import('./pages/auth/Login'));
 const Signup = lazy(() => import('./pages/auth/Signup'));
-const Dashboard = lazy(() => import('./pages/dashboard/Dashboard'));
+const Home = lazy(() => import('./pages/home/Home'));
 const Orders = lazy(() => import('./pages/orders/Orders'));
 const OrderDetail = lazy(() => import('./pages/orders/OrderDetail'));
 const Profile = lazy(() => import('./pages/profile/Profile'));
@@ -25,33 +26,41 @@ function App() {
                             <Route path="/login" element={<Login />} />
                             <Route path="/signup" element={<Signup />} />
 
-                            {/* Protected Routes */}
-                            <Route path="/dashboard" element={
+                            {/* Protected Routes with Mobile Layout */}
+                            <Route path="/home" element={
                                 <ProtectedRoute>
-                                    <Dashboard />
+                                    <MobileLayout>
+                                        <Home />
+                                    </MobileLayout>
                                 </ProtectedRoute>
                             } />
 
                             <Route path="/orders" element={
                                 <ProtectedRoute>
-                                    <Orders />
+                                    <MobileLayout>
+                                        <Orders />
+                                    </MobileLayout>
                                 </ProtectedRoute>
                             } />
 
                             <Route path="/orders/:id" element={
                                 <ProtectedRoute>
-                                    <OrderDetail />
+                                    <MobileLayout>
+                                        <OrderDetail />
+                                    </MobileLayout>
                                 </ProtectedRoute>
                             } />
 
                             <Route path="/profile" element={
                                 <ProtectedRoute>
-                                    <Profile />
+                                    <MobileLayout>
+                                        <Profile />
+                                    </MobileLayout>
                                 </ProtectedRoute>
                             } />
 
                             {/* Default redirect */}
-                            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                            <Route path="/" element={<Navigate to="/home" replace />} />
 
                             {/* 404 */}
                             <Route path="*" element={
@@ -66,10 +75,10 @@ function App() {
                     </Suspense>
 
                     <Toaster
-                        position="top-right"
+                        position="top-center"
                         toastOptions={{
                             duration: 3000,
-                            className: 'font-medium',
+                            className: 'font-medium text-sm',
                             success: {
                                 className: 'bg-success-50 text-success-700 border border-success-200',
                             },

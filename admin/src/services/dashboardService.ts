@@ -35,9 +35,18 @@ export const dashboardService = {
             const establishmentsSnapshot = await getDocs(collection(db, 'establishments'));
             const establishments = establishmentsSnapshot.docs.map(doc => doc.data());
 
-            // Calculate aggregated business stats
-            const totalRevenue = establishments.reduce((sum, establishment) => sum + (establishment.revenue || 0), 0);
-            const totalOrders = establishments.reduce((sum, establishment) => sum + (establishment.totalOrders || 0), 0);
+            // Fetch real orders data for stats
+            const ordersSnapshot = await getDocs(collection(db, 'orders'));
+            const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // Calculate aggregated business stats from actual orders
+            const totalRevenue = orders.reduce((sum, order: any) => {
+                if (order.status !== 'cancelled') {
+                    return sum + (order.pricing?.total || 0);
+                }
+                return sum;
+            }, 0);
+            const totalOrders = orders.filter((order: any) => order.status !== 'cancelled').length;
             const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
             // Calculate establishments by type
@@ -56,9 +65,22 @@ export const dashboardService = {
                 }
             });
 
-            // Today's stats (mock data for now - would need timestamps in orders)
-            const todayOrders = 0;
-            const todayRevenue = 0;
+            // Today's stats from real orders
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+
+            const todayOrders = orders.filter((order: any) => {
+                const orderDate = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+                return orderDate >= todayStart && order.status !== 'cancelled';
+            }).length;
+
+            const todayRevenue = orders.reduce((sum, order: any) => {
+                const orderDate = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+                if (orderDate >= todayStart && order.status !== 'cancelled') {
+                    return sum + (order.pricing?.total || 0);
+                }
+                return sum;
+            }, 0);
 
             return {
                 totalEstablishments,
@@ -145,18 +167,85 @@ export const dashboardService = {
 
     async getChartData(timeRange: string) {
         try {
-            // Fetch orders for chart data (when orders collection is implemented)
-            // For now, returning mock data that can be replaced with real data later
-            const mockData = [
-                { name: 'Jan', orders: 400, revenue: 24000 },
-                { name: 'Feb', orders: 300, revenue: 18000 },
-                { name: 'Mar', orders: 500, revenue: 30000 },
-                { name: 'Apr', orders: 280, revenue: 16800 },
-                { name: 'May', orders: 590, revenue: 35400 },
-                { name: 'Jun', orders: 320, revenue: 19200 },
-            ];
+            // Fetch orders from Firestore
+            const ordersSnapshot = await getDocs(collection(db, 'orders'));
+            const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-            return mockData;
+            // Determine date range based on timeRange parameter
+            const now = new Date();
+            let startDate = new Date();
+            let groupBy: 'day' | 'week' | 'month' = 'day';
+
+            switch (timeRange) {
+                case '7d':
+                    startDate.setDate(now.getDate() - 7);
+                    groupBy = 'day';
+                    break;
+                case '30d':
+                    startDate.setDate(now.getDate() - 30);
+                    groupBy = 'day';
+                    break;
+                case '3m':
+                    startDate.setMonth(now.getMonth() - 3);
+                    groupBy = 'week';
+                    break;
+                case '6m':
+                    startDate.setMonth(now.getMonth() - 6);
+                    groupBy = 'month';
+                    break;
+                case '1y':
+                    startDate.setFullYear(now.getFullYear() - 1);
+                    groupBy = 'month';
+                    break;
+                default:
+                    startDate.setDate(now.getDate() - 30);
+                    groupBy = 'day';
+            }
+
+            // Filter orders by date range
+            const filteredOrders = orders.filter((order: any) => {
+                const orderDate = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+                return orderDate >= startDate && order.status !== 'cancelled';
+            });
+
+            // Group orders by time period
+            const groupedData: Record<string, { orders: number; revenue: number }> = {};
+
+            filteredOrders.forEach((order: any) => {
+                const orderDate = order.createdAt?.toDate ? order.createdAt.toDate() : new Date(order.createdAt);
+                let key: string;
+
+                if (groupBy === 'day') {
+                    key = orderDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                } else if (groupBy === 'week') {
+                    const weekStart = new Date(orderDate);
+                    weekStart.setDate(orderDate.getDate() - orderDate.getDay());
+                    key = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                } else {
+                    key = orderDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                }
+
+                if (!groupedData[key]) {
+                    groupedData[key] = { orders: 0, revenue: 0 };
+                }
+
+                groupedData[key].orders++;
+                groupedData[key].revenue += order.pricing?.total || 0;
+            });
+
+            // Convert to array format for charts
+            const chartData = Object.entries(groupedData).map(([name, data]) => ({
+                name,
+                orders: data.orders,
+                revenue: data.revenue
+            }));
+
+            // Sort by date
+            return chartData.sort((a, b) => {
+                const dateA = new Date(a.name);
+                const dateB = new Date(b.name);
+                return dateA.getTime() - dateB.getTime();
+            });
         } catch (error: any) {
             console.error('Chart data error:', error);
             return [];

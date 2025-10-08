@@ -24,7 +24,9 @@ export interface Establishment {
     phone?: string;
     gstin: string;
     description: string;
+    profileImage?: string; // Main profile image for the establishment
     images: string[];
+    cuisineTypes?: string[]; // Cuisines for easy access
     address: Address;
     serviceTypes: string[]; // cuisines for restaurants, product types for grocery, etc.
     operatingHours: {

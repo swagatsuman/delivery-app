@@ -321,6 +321,30 @@ export const orderService = {
             }
 
             const orderData = orderDoc.data() as Order;
+
+            // Restaurant can only set these statuses (food preparation statuses)
+            const allowedStatuses = ['confirmed', 'preparing', 'ready', 'cancelled'];
+            if (!allowedStatuses.includes(status)) {
+                throw new Error(`Restaurant can only update status to: ${allowedStatuses.join(', ')}`);
+            }
+
+            // Validate status flow for restaurant (food preparation flow)
+            const currentStatus = orderData.status;
+            const validTransitions: { [key: string]: string[] } = {
+                'placed': ['confirmed', 'cancelled'],
+                'confirmed': ['preparing', 'cancelled'],
+                'preparing': ['ready', 'cancelled'],
+                'ready': ['ready', 'cancelled'], // Can stay ready, waiting for pickup
+                // If delivery agent has picked up, restaurant can't change status
+                'picked_up': [],
+                'on_the_way': [],
+                'delivered': []
+            };
+
+            if (validTransitions[currentStatus] && !validTransitions[currentStatus].includes(status)) {
+                throw new Error(`Cannot change status from ${currentStatus} to ${status}. Food has already been ${currentStatus.replace('_', ' ')}.`);
+            }
+
             const newTimeline = [
                 ...(orderData.timeline || []),
                 {

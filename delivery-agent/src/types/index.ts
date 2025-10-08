@@ -62,6 +62,7 @@ export interface Order {
         delivery: Address;
     };
     status: OrderStatus;
+    deliveryStatus?: 'assigned' | 'picked_up' | 'on_the_way' | 'out_for_delivery' | 'delivered' | 'cancelled';
     timeline: OrderTimeline[];
     payment: Payment;
     estimatedDeliveryTime: Date;
@@ -84,6 +85,7 @@ export interface OrderItem {
     quantity: number;
     customizations: string[];
     specialInstructions: string;
+    images?: string[];
 }
 
 export interface OrderPricing {

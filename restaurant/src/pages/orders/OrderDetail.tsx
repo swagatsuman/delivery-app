@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { Card } from '../../components/ui/Card';
@@ -8,6 +8,8 @@ import { Loading } from '../../components/ui/Loading';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { fetchOrderDetails, updateOrderStatus } from '../../store/slices/orderSlice';
 import { formatRelativeTime, formatCurrency, formatDate } from '../../utils/helpers';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 import {
     ArrowLeft,
     Clock,
@@ -26,6 +28,7 @@ const OrderDetail: React.FC = () => {
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
     const { selectedOrder, loading, error } = useAppSelector(state => state.orders);
+    const [restaurantCommission, setRestaurantCommission] = useState<number>(15); // Default 15%
 
     useEffect(() => {
         if (id) {
@@ -38,6 +41,24 @@ const OrderDetail: React.FC = () => {
             toast.error(error);
         }
     }, [error]);
+
+    // Fetch restaurant commission from settings
+    useEffect(() => {
+        const fetchCommissionSettings = async () => {
+            try {
+                const settingsDoc = await getDoc(doc(db, 'settings', 'delivery'));
+                if (settingsDoc.exists()) {
+                    const settings = settingsDoc.data();
+                    setRestaurantCommission(settings.restaurantCommissionPercentage || 15);
+                }
+            } catch (error) {
+                console.error('Error fetching commission settings:', error);
+                // Use default 15% if error
+            }
+        };
+
+        fetchCommissionSettings();
+    }, []);
 
     const handleStatusUpdate = async (status: string) => {
         if (!selectedOrder) return;
@@ -57,8 +78,7 @@ const OrderDetail: React.FC = () => {
         const statusFlow = {
             'placed': 'confirmed',
             'confirmed': 'preparing',
-            'preparing': 'ready',
-            'ready': 'picked_up'
+            'preparing': 'ready'
         };
         return statusFlow[currentStatus as keyof typeof statusFlow];
     };
@@ -67,8 +87,7 @@ const OrderDetail: React.FC = () => {
         const actions = {
             'placed': 'Accept Order',
             'confirmed': 'Start Preparing',
-            'preparing': 'Mark Ready',
-            'ready': 'Order Picked Up'
+            'preparing': 'Mark Ready'
         };
         return actions[status as keyof typeof actions];
     };
@@ -171,6 +190,36 @@ const OrderDetail: React.FC = () => {
                             </Button>
                         )}
                     </div>
+
+                    {/* Waiting for Delivery Agent */}
+                    {selectedOrder.status === 'ready' && !selectedOrder.deliveryAgentId && (
+                        <div className="mt-4 p-4 bg-warning-50 border border-warning-200 rounded-lg">
+                            <div className="flex items-center">
+                                <Clock className="h-5 w-5 mr-3 text-warning-600 animate-pulse" />
+                                <div>
+                                    <p className="font-semibold text-warning-900">Waiting for delivery agent to pick up</p>
+                                    <p className="text-sm text-warning-700 mt-1">
+                                        Food is ready and waiting for a delivery agent to be assigned
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Delivery Agent Assigned */}
+                    {selectedOrder.status === 'ready' && selectedOrder.deliveryAgentId && (
+                        <div className="mt-4 p-4 bg-success-50 border border-success-200 rounded-lg">
+                            <div className="flex items-center">
+                                <User className="h-5 w-5 mr-3 text-success-600" />
+                                <div>
+                                    <p className="font-semibold text-success-900">Delivery agent assigned</p>
+                                    <p className="text-sm text-success-700 mt-1">
+                                        Waiting for delivery agent to pick up the order
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </Card>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -278,19 +327,21 @@ const OrderDetail: React.FC = () => {
                         </Card>
 
                         {/* Delivery Address */}
-                        <Card title="Delivery Address" padding="md">
-                            <div className="flex items-start space-x-3">
-                                <MapPin className="h-5 w-5 text-secondary-400 mt-1 flex-shrink-0" />
-                                <div>
-                                    <p className="font-medium text-secondary-900">{selectedOrder.addresses.delivery.label}</p>
-                                    <p className="text-sm text-secondary-600 mt-1">
-                                        {selectedOrder.addresses.delivery.street}<br />
-                                        {selectedOrder.addresses.delivery.city}, {selectedOrder.addresses.delivery.state}<br />
-                                        {selectedOrder.addresses.delivery.pincode}
-                                    </p>
+                        {selectedOrder.deliveryAddress && (
+                            <Card title="Delivery Address" padding="md">
+                                <div className="flex items-start space-x-3">
+                                    <MapPin className="h-5 w-5 text-secondary-400 mt-1 flex-shrink-0" />
+                                    <div>
+                                        <p className="font-medium text-secondary-900">{selectedOrder.deliveryAddress.label || 'Delivery Address'}</p>
+                                        <p className="text-sm text-secondary-600 mt-1">
+                                            {selectedOrder.deliveryAddress.address}<br />
+                                            {selectedOrder.deliveryAddress.city}, {selectedOrder.deliveryAddress.state}<br />
+                                            {selectedOrder.deliveryAddress.pincode}
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
-                        </Card>
+                            </Card>
+                        )}
 
                         {/* Payment Information */}
                         <Card title="Payment Information" padding="md">
@@ -352,6 +403,35 @@ const OrderDetail: React.FC = () => {
                                 </div>
                             </div>
                         </Card>
+
+                        {/* Restaurant Earnings Breakdown */}
+                        {selectedOrder.status === 'delivered' && (
+                            <Card title="Your Earnings" padding="md">
+                                <div className="space-y-3">
+                                    <div className="flex justify-between">
+                                        <span className="text-secondary-600">Order Subtotal:</span>
+                                        <span className="text-secondary-900">{formatCurrency(selectedOrder.pricing.subtotal)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-error-600">
+                                        <span>Platform Commission ({restaurantCommission}%):</span>
+                                        <span>-{formatCurrency(selectedOrder.pricing.subtotal * (restaurantCommission / 100))}</span>
+                                    </div>
+                                    <div className="border-t border-secondary-200 pt-3">
+                                        <div className="flex justify-between font-semibold text-lg">
+                                            <span className="text-success-700">Net Earnings:</span>
+                                            <span className="text-success-600">
+                                                {formatCurrency(selectedOrder.pricing.subtotal * (1 - restaurantCommission / 100))}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
+                                        <p className="text-xs text-blue-700">
+                                            <strong>Note:</strong> Tax and delivery fee go directly to the platform. You receive {100 - restaurantCommission}% of the food subtotal.
+                                        </p>
+                                    </div>
+                                </div>
+                            </Card>
+                        )}
 
                         {/* Special Instructions */}
                         {selectedOrder.specialInstructions && (

@@ -40,6 +40,14 @@ export const updateProfile = createAsyncThunk(
     }
 );
 
+export const updateAgentAvailability = createAsyncThunk(
+    'auth/updateAgentAvailability',
+    async (isAvailable: boolean) => {
+        await authService.updateAvailability(isAvailable);
+        return isAvailable;
+    }
+);
+
 const authSlice = createSlice({
     name: 'auth',
     initialState,
@@ -99,6 +107,16 @@ const authSlice = createSlice({
                 state.user = null;
                 state.isAuthenticated = false;
                 state.error = null;
+            })
+            // Update Agent Availability
+            .addCase(updateAgentAvailability.fulfilled, (state, action) => {
+                if (state.user?.deliveryAgentDetails) {
+                    state.user.deliveryAgentDetails.isAvailable = action.payload;
+                    state.user.deliveryAgentDetails.workingHours = {
+                        ...state.user.deliveryAgentDetails.workingHours,
+                        isOnline: action.payload
+                    };
+                }
             });
     }
 });

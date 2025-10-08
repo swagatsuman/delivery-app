@@ -85,7 +85,7 @@ export const RecentOrders: React.FC<RecentOrdersProps> = ({
                     </span>
                                         <span className="flex items-center">
                       <MapPin className="h-3 w-3 mr-1" />
-                                            {order.addresses.delivery.city}
+                                            {order.deliveryAddress?.city || 'N/A'}
                     </span>
                                     </div>
                                 </div>

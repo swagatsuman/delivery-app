@@ -12,8 +12,11 @@ const Establishments = lazy(() => import('./pages/establishments/Establishments'
 const EstablishmentDetail = lazy(() => import('./pages/establishments/EstablishmentDetail'));
 const DeliveryAgents = lazy(() => import('./pages/deliveryAgents/DeliveryAgents.tsx'));
 const DeliveryAgentDetail = lazy(() => import('./pages/deliveryAgents/DeliveryAgentDetail.tsx'));
-// const Users = lazy(() => import('./pages/users/Users'));
-// const UserDetail = lazy(() => import('./pages/users/UserDetail'));
+const Users = lazy(() => import('./pages/users/Users'));
+const UserDetail = lazy(() => import('./pages/users/UserDetail'));
+const Orders = lazy(() => import('./pages/orders/Orders'));
+const ComingSoon = lazy(() => import('./pages/common/ComingSoon'));
+const Settings = lazy(() => import('./pages/settings/Settings'));
 // const NotFound = lazy(() => import('./pages/NotFound'));
 
 function App() {
@@ -56,17 +59,35 @@ function App() {
                             </ProtectedRoute>
                         }/>
 
-                        {/*<Route path="/users" element={
+                        <Route path="/users" element={
                             <ProtectedRoute>
                                 <Users />
                             </ProtectedRoute>
-                        } />*/}
+                        } />
 
-                        {/*<Route path="/users/:id" element={
+                        <Route path="/users/:id" element={
                             <ProtectedRoute>
                                 <UserDetail />
                             </ProtectedRoute>
-                        } />*/}
+                        } />
+
+                        <Route path="/orders" element={
+                            <ProtectedRoute>
+                                <Orders />
+                            </ProtectedRoute>
+                        } />
+
+                        <Route path="/analytics" element={
+                            <ProtectedRoute>
+                                <ComingSoon title="Analytics" description="Analytics and reporting features are coming soon." />
+                            </ProtectedRoute>
+                        } />
+
+                        <Route path="/settings" element={
+                            <ProtectedRoute>
+                                <Settings />
+                            </ProtectedRoute>
+                        } />
 
                         {/* Default redirect */}
                         <Route path="/" element={<Navigate to="/dashboard" replace/>}/>

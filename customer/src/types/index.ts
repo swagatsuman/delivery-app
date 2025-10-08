@@ -171,10 +171,12 @@ export interface Order {
     userId: string;
     restaurantId: string;
     restaurant: Restaurant;
+    deliveryAgentId?: string;
     items: CartItem[];
     pricing: CartPricing;
     deliveryAddress: Address;
     status: OrderStatus;
+    deliveryStatus?: 'assigned' | 'picked_up' | 'on_the_way' | 'out_for_delivery' | 'delivered' | 'cancelled';
     paymentMethod: PaymentMethod;
     paymentStatus: 'pending' | 'completed' | 'failed';
     specialInstructions?: string;

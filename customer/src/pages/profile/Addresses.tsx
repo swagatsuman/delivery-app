@@ -12,7 +12,7 @@ import {
     setDefaultAddress,
     setCurrentLocation
 } from '../../store/slices/locationSlice';
-import { setDeliveryAddress } from '../../store/slices/cartSlice';
+import { setDeliveryAddress, recalculateCartPricing } from '../../store/slices/cartSlice';
 import type { Address } from '../../types';
 
 const Addresses: React.FC = () => {
@@ -55,10 +55,12 @@ const Addresses: React.FC = () => {
         }
     };
 
-    const handleConfirmSelection = () => {
+    const handleConfirmSelection = async () => {
         if (selectedAddress) {
             dispatch(setCurrentLocation(selectedAddress));
             dispatch(setDeliveryAddress(selectedAddress));
+            // Recalculate pricing with new delivery address
+            await dispatch(recalculateCartPricing());
             navigate(-1);
         }
     };

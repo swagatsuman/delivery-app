@@ -44,4 +44,13 @@
     .sidebar-item-active {
         @apply bg-primary-50 text-primary-600 border-r-2 border-primary-500;
     }
+
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
 }

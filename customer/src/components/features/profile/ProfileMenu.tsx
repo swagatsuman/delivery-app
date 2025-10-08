@@ -7,7 +7,8 @@ import {
     HelpCircle,
     Settings,
     LogOut,
-    ChevronRight
+    ChevronRight,
+    Package
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../../../hooks/useAppDispatch';
@@ -22,6 +23,12 @@ export const ProfileMenu: React.FC<ProfileMenuProps> = ({ user }) => {
     const dispatch = useAppDispatch();
 
     const menuItems = [
+        {
+            icon: Package,
+            label: 'My Orders',
+            path: '/orders',
+            description: 'View your order history and track orders'
+        },
         {
             icon: MapPin,
             label: 'Manage Addresses',

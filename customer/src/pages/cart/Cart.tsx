@@ -1,23 +1,37 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { CartItem } from '../../components/features/cart/CartItem';
 import { BillDetails } from '../../components/features/cart/BillDetails';
 import { useAppSelector, useAppDispatch } from '../../hooks/useAppDispatch';
-import { updateCartItem, removeFromCart, clearCart } from '../../store/slices/cartSlice';
+import { updateCartItem, removeFromCart, clearCart, recalculateCartPricing, setRestaurantInfo } from '../../store/slices/cartSlice';
 import { useCart } from '../../hooks/useCart';
 
 const Cart: React.FC = () => {
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
-    const { items, restaurantId, deliveryAddress, pricing } = useAppSelector(state => state.cart);
+    const { items, restaurantId, deliveryAddress, pricing, restaurantAddress } = useAppSelector(state => state.cart);
     const { restaurants } = useAppSelector(state => state.restaurant);
     const { getTotalItems, getTotalAmount } = useCart();
 
     const restaurant = restaurants.find(r => r.id === restaurantId);
     const totalItems = getTotalItems();
     const totalAmount = getTotalAmount();
+
+    // Set restaurant info if not already set
+    useEffect(() => {
+        if (restaurant && !restaurantAddress) {
+            dispatch(setRestaurantInfo(restaurant));
+        }
+    }, [restaurant, restaurantAddress, dispatch]);
+
+    // Recalculate pricing when cart loads or when items/address changes
+    useEffect(() => {
+        if (items.length > 0) {
+            dispatch(recalculateCartPricing());
+        }
+    }, [items.length, deliveryAddress, dispatch]);
 
     const handleBack = () => {
         navigate(-1);
@@ -29,10 +43,14 @@ const Cart: React.FC = () => {
         } else {
             dispatch(updateCartItem({ itemId, quantity: newQuantity }));
         }
+        // Recalculate pricing after update
+        dispatch(recalculateCartPricing());
     };
 
     const handleRemoveItem = (itemId: string) => {
         dispatch(removeFromCart(itemId));
+        // Recalculate pricing after removal
+        dispatch(recalculateCartPricing());
     };
 
     const handleClearCart = () => {
@@ -66,19 +84,19 @@ const Cart: React.FC = () => {
 
                 {/* Empty Cart */}
                 <div className="flex-1 flex items-center justify-center px-4">
-                    <div className="text-center">
-                        <div className="text-8xl mb-6">🛒</div>
+                    <div className="text-center max-w-sm">
+                        <div className="text-8xl mb-6">🍽️</div>
                         <h2 className="text-2xl font-bold text-secondary-900 mb-4">
                             Your cart is empty
                         </h2>
                         <p className="text-secondary-600 mb-8">
-                            Looks like you haven't added anything to your cart yet
+                            You haven't added any delicious food yet. Start exploring restaurants and add your favorite dishes!
                         </p>
                         <Button
                             onClick={() => navigate('/home')}
                             className="px-8"
                         >
-                            Start Shopping
+                            Browse Restaurants
                         </Button>
                     </div>
                 </div>

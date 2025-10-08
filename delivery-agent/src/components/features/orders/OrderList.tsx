@@ -131,7 +131,7 @@ export const OrderList: React.FC<OrderListProps> = ({
                                 </div>
 
                                 <div className="text-xs text-secondary-500">
-                                    <p><strong>Pickup:</strong> {order.addresses.restaurant.street}</p>
+                                    <p><strong>Pickup:</strong> {(order as any).restaurant?.name || (order as any).restaurantName || order.addresses.restaurant.street}</p>
                                     <p><strong>Drop:</strong> {order.addresses.delivery.street}</p>
                                 </div>
                             </div>

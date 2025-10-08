@@ -86,6 +86,12 @@ function App() {
                                 </ProtectedRoute>
                             } />
 
+                            <Route path="/orders/:id" element={
+                                <ProtectedRoute>
+                                    <OrderTracking />
+                                </ProtectedRoute>
+                            } />
+
                             <Route path="/profile" element={
                                 <ProtectedRoute>
                                     <MobileLayout>

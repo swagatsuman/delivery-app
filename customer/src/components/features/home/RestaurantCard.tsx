@@ -18,11 +18,17 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
         >
             {/* Restaurant Image */}
             <div className="relative h-48">
-                <img
-                    src={restaurant.images[0]}
-                    alt={restaurant.name}
-                    className="w-full h-full object-cover"
-                />
+                {restaurant.images && restaurant.images.length > 0 ? (
+                    <img
+                        src={restaurant.images[0]}
+                        alt={restaurant.name}
+                        className="w-full h-full object-cover"
+                    />
+                ) : (
+                    <div className="w-full h-full bg-secondary-200 flex items-center justify-center">
+                        <span className="text-6xl">🍽️</span>
+                    </div>
+                )}
 
                 {/* Offers Badge */}
                 {restaurant.offers && restaurant.offers.length > 0 && (

@@ -1,5 +1,5 @@
 import { useAppSelector, useAppDispatch } from './useAppDispatch';
-import { recalculatePricing } from '../store/slices/cartSlice';
+import { recalculateCartPricing } from '../store/slices/cartSlice';
 import { useEffect } from 'react';
 
 export const useCart = () => {
@@ -9,7 +9,7 @@ export const useCart = () => {
     // Ensure pricing is recalculated on component mount
     useEffect(() => {
         if (items.length > 0) {
-            dispatch(recalculatePricing());
+            dispatch(recalculateCartPricing());
         }
     }, []);
 

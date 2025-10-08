@@ -11,7 +11,32 @@ import type { Restaurant, Category, MenuCategory, MenuItem, Coordinates, SearchR
 
 class RestaurantService {
 
-    async getNearbyRestaurants(coordinates: Coordinates, radiusKm: number = 10): Promise<Restaurant[]> {
+    /**
+     * Fetch delivery settings from Firestore
+     */
+    async getDeliverySettings(): Promise<{ deliveryRadius: number; deliveryFee: number }> {
+        try {
+            const settingsDoc = await getDoc(doc(db, 'settings', 'delivery'));
+            if (settingsDoc.exists()) {
+                const data = settingsDoc.data();
+                return {
+                    deliveryRadius: data.deliveryRadius || 10,
+                    deliveryFee: data.deliveryFeePerOrder || 40
+                };
+            }
+        } catch (error) {
+            console.error('Error fetching delivery settings:', error);
+        }
+        // Return defaults if error
+        return { deliveryRadius: 10, deliveryFee: 40 };
+    }
+
+    async getNearbyRestaurants(coordinates: Coordinates, radiusKm?: number): Promise<Restaurant[]> {
+        // Fetch radius from settings if not provided
+        if (!radiusKm) {
+            const settings = await this.getDeliverySettings();
+            radiusKm = settings.deliveryRadius;
+        }
         try {
             // For now, get all establishments and filter by distance client-side
             // In production, you'd use Firebase Extensions for geoqueries
@@ -31,15 +56,15 @@ class RestaurantService {
                 // Convert Firestore data to Restaurant type
                 const restaurant: Restaurant = {
                     id: doc.id,
-                    name: data.name,
-                    description: data.description,
-                    images: data.images || [],
+                    name: data.businessName || data.name || 'Restaurant',
+                    description: data.description || '',
+                    images: data.profileImage ? [data.profileImage, ...(data.images || [])] : (data.images || []),
                     cuisineTypes: data.cuisineTypes || [],
                     rating: data.rating || 0,
                     totalRatings: data.totalRatings || 0,
-                    deliveryTime: data.deliveryTime || '30-40 mins',
+                    deliveryTime: `${data.estimatedDeliveryTime || 30}-${(data.estimatedDeliveryTime || 30) + 10} mins`,
                     deliveryFee: data.deliveryFee || 30,
-                    minimumOrder: data.minimumOrder || 0,
+                    minimumOrder: data.minimumOrderValue || 0,
                     address: {
                         id: data.address?.id || doc.id,
                         userId: data.ownerId,
@@ -120,15 +145,15 @@ class RestaurantService {
 
             return {
                 id: restaurantDoc.id,
-                name: data.name,
-                description: data.description,
-                images: data.images || [],
+                name: data.businessName || data.name || 'Restaurant',
+                description: data.description || '',
+                images: data.profileImage ? [data.profileImage, ...(data.images || [])] : (data.images || []),
                 cuisineTypes: data.cuisineTypes || [],
                 rating: data.rating || 0,
                 totalRatings: data.totalRatings || 0,
-                deliveryTime: data.deliveryTime || '30-40 mins',
+                deliveryTime: `${data.estimatedDeliveryTime || 30}-${(data.estimatedDeliveryTime || 30) + 10} mins`,
                 deliveryFee: data.deliveryFee || 30,
-                minimumOrder: data.minimumOrder || 0,
+                minimumOrder: data.minimumOrderValue || 0,
                 address: {
                     id: data.address?.id || restaurantDoc.id,
                     userId: data.ownerId,

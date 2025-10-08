@@ -45,6 +45,13 @@ class OrderService {
                 throw new Error('Restaurant not found');
             }
             const restaurantDataForAddress = restaurantDocForAddress.data();
+            console.log('Restaurant data from establishments:', {
+                id: restaurantDocForAddress.id,
+                businessName: restaurantDataForAddress.businessName,
+                name: restaurantDataForAddress.name,
+                restaurantName: restaurantDataForAddress.restaurantName,
+                address: restaurantDataForAddress.address
+            });
             const restaurantAddress = restaurantDataForAddress.address || {};
 
             // Calculate distance between restaurant and delivery address
@@ -111,6 +118,7 @@ class OrderService {
                 customerName: customerName || 'Customer',
                 customerPhone: customerPhone || '',
                 restaurantId: orderData.restaurantId,
+                restaurantName: restaurantDataForAddress.businessName || restaurantDataForAddress.name || restaurantDataForAddress.restaurantName || 'Restaurant',
                 items: orderData.items.map((item: any) => {
                     const menuItem: any = {
                         id: item.menuItem.id,
@@ -161,7 +169,7 @@ class OrderService {
                     ...(orderData.deliveryAddress.phone && { phone: orderData.deliveryAddress.phone })
                 },
                 restaurantAddress: {
-                    address: restaurantAddress.address || '',
+                    address: restaurantAddress.address || restaurantAddress.street || '',
                     street: restaurantAddress.street || restaurantAddress.address || '',
                     city: restaurantAddress.city || '',
                     state: restaurantAddress.state || '',
@@ -195,12 +203,12 @@ class OrderService {
             // Fetch the restaurant details for the response
             let restaurantData;
             try {
-                const restaurantDoc = await getDoc(doc(db, 'restaurants', orderData.restaurantId));
+                const restaurantDoc = await getDoc(doc(db, 'establishments', orderData.restaurantId));
                 if (restaurantDoc.exists()) {
                     const data = restaurantDoc.data();
                     restaurantData = {
                         id: restaurantDoc.id,
-                        name: data.name || 'Unknown Restaurant',
+                        name: data.businessName || data.name || 'Unknown Restaurant',
                         description: data.description || '',
                         images: data.images || [],
                         cuisineTypes: data.cuisineTypes || [],
@@ -297,10 +305,11 @@ class OrderService {
             console.log('Fetching orders for user:', userId);
 
             const ordersRef = collection(db, 'orders');
+            // Query without orderBy to avoid index requirement
+            // We'll sort in memory instead
             const q = query(
                 ordersRef,
-                where('userId', '==', userId),
-                orderBy('createdAt', 'desc')
+                where('userId', '==', userId)
             );
             const snapshot = await getDocs(q);
 
@@ -311,15 +320,27 @@ class OrderService {
             for (const orderDoc of snapshot.docs) {
                 const data = orderDoc.data();
 
-                // Get restaurant details
+                // Get restaurant details - try from establishment first, fallback to order data
                 let restaurantData;
+                console.log('Order data restaurantId:', data.restaurantId);
+                console.log('Order has restaurantAddress?', !!data.restaurantAddress);
+
                 try {
-                    const restaurantDoc = await getDoc(doc(db, 'restaurants', data.restaurantId));
+                    const restaurantDoc = await getDoc(doc(db, 'establishments', data.restaurantId));
+                    console.log('Restaurant doc exists?', restaurantDoc.exists());
+
                     if (restaurantDoc.exists()) {
                         const restData = restaurantDoc.data();
+                        console.log('Restaurant data found:', { businessName: restData.businessName, name: restData.name, address: restData.address });
+
+                        // Use restaurantAddress from order if establishment doesn't have it
+                        const addressToUse = restData.address && Object.keys(restData.address).length > 0
+                            ? restData.address
+                            : data.restaurantAddress || {};
+
                         restaurantData = {
                             id: restaurantDoc.id,
-                            name: restData.name || 'Unknown Restaurant',
+                            name: restData.businessName || restData.name || restData.restaurantName || 'Unknown Restaurant',
                             description: restData.description || '',
                             images: restData.images || [],
                             cuisineTypes: restData.cuisineTypes || [],
@@ -328,14 +349,16 @@ class OrderService {
                             deliveryTime: restData.deliveryTime || '30-40 mins',
                             deliveryFee: restData.deliveryFee || 30,
                             minimumOrder: restData.minimumOrder || 0,
-                            address: restData.address || {},
+                            address: addressToUse,
                             isOpen: true,
                             featured: false
                         };
                     } else {
+                        console.warn('Restaurant not found in establishments, using order data');
+                        // Use data from order document
                         restaurantData = {
                             id: data.restaurantId,
-                            name: 'Unknown Restaurant',
+                            name: data.restaurantName || 'Unknown Restaurant',
                             description: '',
                             images: [],
                             cuisineTypes: [],
@@ -344,16 +367,18 @@ class OrderService {
                             deliveryTime: '30-40 mins',
                             deliveryFee: 30,
                             minimumOrder: 0,
-                            address: {},
+                            address: data.restaurantAddress || {},
                             isOpen: true,
                             featured: false
                         };
                     }
                 } catch (error) {
                     console.error('Error fetching restaurant for order:', error);
+                    console.error('Restaurant ID that failed:', data.restaurantId);
+                    // Fallback to order data
                     restaurantData = {
                         id: data.restaurantId,
-                        name: 'Unknown Restaurant',
+                        name: data.restaurantName || 'Unknown Restaurant',
                         description: '',
                         images: [],
                         cuisineTypes: [],
@@ -362,7 +387,7 @@ class OrderService {
                         deliveryTime: '30-40 mins',
                         deliveryFee: 30,
                         minimumOrder: 0,
-                        address: {},
+                        address: data.restaurantAddress || {},
                         isOpen: true,
                         featured: false
                     };
@@ -374,10 +399,12 @@ class OrderService {
                     userId: data.userId,
                     restaurantId: data.restaurantId,
                     restaurant: restaurantData,
+                    deliveryAgentId: data.deliveryAgentId || undefined,
                     items: data.items || [],
                     pricing: data.pricing || { itemTotal: 0, deliveryFee: 0, taxes: 0, discount: 0, total: 0 },
                     deliveryAddress: data.deliveryAddress,
                     status: data.status || 'placed',
+                    deliveryStatus: data.deliveryStatus || undefined,
                     paymentMethod: data.paymentMethod || 'cash',
                     paymentStatus: data.paymentStatus || 'pending',
                     specialInstructions: data.specialInstructions,
@@ -396,6 +423,14 @@ class OrderService {
                 });
             }
 
+            // Sort orders by createdAt in descending order (newest first)
+            orders.sort((a, b) => {
+                const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+                const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+                return dateB - dateA;
+            });
+
+            console.log('Orders sorted, returning:', orders.length);
             return orders;
         } catch (error) {
             console.error('Error fetching orders:', error);
@@ -415,15 +450,27 @@ class OrderService {
 
             const data = orderDoc.data();
 
-            // Get restaurant details
+            // Get restaurant details - try from establishment first, fallback to order data
             let restaurantData;
+            console.log('Order details restaurantId:', data.restaurantId);
+            console.log('Order has restaurantAddress?', !!data.restaurantAddress);
+
             try {
-                const restaurantDoc = await getDoc(doc(db, 'restaurants', data.restaurantId));
+                const restaurantDoc = await getDoc(doc(db, 'establishments', data.restaurantId));
+                console.log('Restaurant doc exists for order details?', restaurantDoc.exists());
+
                 if (restaurantDoc.exists()) {
                     const restData = restaurantDoc.data();
+                    console.log('Restaurant data for order details:', { businessName: restData.businessName, name: restData.name, address: restData.address });
+
+                    // Use restaurantAddress from order if establishment doesn't have it
+                    const addressToUse = restData.address && Object.keys(restData.address).length > 0
+                        ? restData.address
+                        : data.restaurantAddress || {};
+
                     restaurantData = {
                         id: restaurantDoc.id,
-                        name: restData.name || 'Unknown Restaurant',
+                        name: restData.businessName || restData.name || restData.restaurantName || 'Unknown Restaurant',
                         description: restData.description || '',
                         images: restData.images || [],
                         cuisineTypes: restData.cuisineTypes || [],
@@ -432,14 +479,16 @@ class OrderService {
                         deliveryTime: restData.deliveryTime || '30-40 mins',
                         deliveryFee: restData.deliveryFee || 30,
                         minimumOrder: restData.minimumOrder || 0,
-                        address: restData.address || {},
+                        address: addressToUse,
                         isOpen: true,
                         featured: false
                     };
                 } else {
+                    console.warn('Restaurant not found in establishments for order details, using order data');
+                    // Use data from order document
                     restaurantData = {
                         id: data.restaurantId,
-                        name: 'Unknown Restaurant',
+                        name: data.restaurantName || 'Unknown Restaurant',
                         description: '',
                         images: [],
                         cuisineTypes: [],
@@ -448,16 +497,18 @@ class OrderService {
                         deliveryTime: '30-40 mins',
                         deliveryFee: 30,
                         minimumOrder: 0,
-                        address: {},
+                        address: data.restaurantAddress || {},
                         isOpen: true,
                         featured: false
                     };
                 }
             } catch (error) {
                 console.error('Error fetching restaurant for order details:', error);
+                console.error('Restaurant ID that failed:', data.restaurantId);
+                // Fallback to order data
                 restaurantData = {
                     id: data.restaurantId,
-                    name: 'Unknown Restaurant',
+                    name: data.restaurantName || 'Unknown Restaurant',
                     description: '',
                     images: [],
                     cuisineTypes: [],
@@ -466,7 +517,7 @@ class OrderService {
                     deliveryTime: '30-40 mins',
                     deliveryFee: 30,
                     minimumOrder: 0,
-                    address: {},
+                    address: data.restaurantAddress || {},
                     isOpen: true,
                     featured: false
                 };
@@ -478,10 +529,12 @@ class OrderService {
                 userId: data.userId,
                 restaurantId: data.restaurantId,
                 restaurant: restaurantData,
+                deliveryAgentId: data.deliveryAgentId || undefined,
                 items: data.items || [],
                 pricing: data.pricing || { itemTotal: 0, deliveryFee: 0, taxes: 0, discount: 0, total: 0 },
                 deliveryAddress: data.deliveryAddress,
                 status: data.status || 'placed',
+                deliveryStatus: data.deliveryStatus || undefined,
                 paymentMethod: data.paymentMethod || 'cash',
                 paymentStatus: data.paymentStatus || 'pending',
                 specialInstructions: data.specialInstructions,
@@ -519,6 +572,13 @@ class OrderService {
 
     async rateOrder(orderId: string, rating: OrderRating): Promise<OrderRating> {
         try {
+            // Import ratingService here to avoid circular dependency
+            const { ratingService } = await import('./ratingService');
+
+            // Create rating in the ratings collection
+            await ratingService.createRating(orderId, rating);
+
+            // Also update order document for backward compatibility
             const orderRef = doc(db, 'orders', orderId);
             const ratingWithTimestamp = {
                 ...rating,

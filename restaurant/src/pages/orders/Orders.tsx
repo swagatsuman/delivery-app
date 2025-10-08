@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../../components/layout/Layout';
 import { Card } from '../../components/ui/Card';
@@ -7,10 +7,11 @@ import { OrderList } from '../../components/features/orders/OrderList';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { useAuth } from '../../hooks/useAuth';
 import {
-    fetchOrders,
     updateOrderStatus,
     setFilters,
 } from '../../store/slices/orderSlice';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 import type { Order, OrderFilters } from '../../types';
 import { Search, Filter, RefreshCw, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -19,23 +20,70 @@ const Orders: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { orders, loading, filters } = useAppSelector(state => state.orders);
-
+    const { filters } = useAppSelector(state => state.orders);
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
+    // Use refs to track previous values without causing re-renders
+    const previousOrdersRef = useRef<Order[]>([]);
+    const isInitialLoadRef = useRef(true);
+
+    // Real-time listener for restaurant orders
     useEffect(() => {
-        if (user?.uid) {
-            dispatch(fetchOrders({ restaurantId: user.uid, filters }))
-                .unwrap()
-                .catch((error) => {
-                    console.error('Failed to fetch orders:', error);
-                    // Only show toast for real errors, not missing collections/indexes
-                    if (!error.message?.includes('index') && !error.message?.includes('collection')) {
-                        toast.error('Failed to load orders');
-                    }
+        if (!user?.uid) return;
+
+        console.log('Setting up real-time listener for restaurant orders:', user.uid);
+        setLoading(true);
+
+        const ordersQuery = query(
+            collection(db, 'orders'),
+            where('restaurantId', '==', user.uid),
+            orderBy('createdAt', 'desc')
+        );
+
+        const unsubscribe = onSnapshot(
+            ordersQuery,
+            (snapshot) => {
+                const ordersData: Order[] = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        ...data,
+                        createdAt: data.createdAt?.toDate() || new Date(),
+                        updatedAt: data.updatedAt?.toDate() || new Date(),
+                        estimatedDeliveryTime: data.estimatedDeliveryTime?.toDate() || new Date(),
+                        actualDeliveryTime: data.actualDeliveryTime?.toDate()
+                    } as Order;
                 });
-        }
-    }, [dispatch, user, filters]);
+
+                console.log('✅ Received real-time orders update:', ordersData.length);
+
+                // Show notification for new orders (only after initial load)
+                if (!isInitialLoadRef.current && ordersData.length > previousOrdersRef.current.length) {
+                    const newOrder = ordersData.find(o => !previousOrdersRef.current.some(existing => existing.id === o.id));
+                    if (newOrder) {
+                        toast.success(`🔔 New order #${newOrder.orderNumber} received!`, { duration: 5000 });
+                    }
+                }
+
+                previousOrdersRef.current = ordersData;
+                setOrders(ordersData);
+                setLoading(false);
+                isInitialLoadRef.current = false;
+            },
+            (error) => {
+                console.error('❌ Error listening to orders:', error);
+                setLoading(false);
+                isInitialLoadRef.current = false;
+            }
+        );
+
+        return () => {
+            console.log('Cleaning up orders listener');
+            unsubscribe();
+        };
+    }, [user?.uid]);
 
     const handleFiltersChange = (newFilters: Partial<OrderFilters>) => {
         dispatch(setFilters(newFilters));
@@ -63,16 +111,11 @@ const Orders: React.FC = () => {
     };
 
     const handleRefresh = async () => {
+        // With real-time listeners, data is always fresh
+        // This is just for user feedback
         setRefreshing(true);
-        try {
-            if (user?.uid) {
-                await dispatch(fetchOrders({ restaurantId: user.uid, filters })).unwrap();
-            }
-        } catch (error) {
-            // Error handled by global error handler
-        } finally {
-            setRefreshing(false);
-        }
+        toast.success('Orders are always up to date with real-time sync!');
+        setTimeout(() => setRefreshing(false), 500);
     };
 
     const getFilteredOrders = () => {

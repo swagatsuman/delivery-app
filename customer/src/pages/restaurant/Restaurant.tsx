@@ -8,6 +8,7 @@ import { FloatingButton } from '../../components/ui/FloatingButton';
 import { Loading } from '../../components/ui/Loading';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { fetchRestaurantDetails, fetchRestaurantMenu } from '../../store/slices/restaurantSlice';
+import { setRestaurantInfo } from '../../store/slices/cartSlice';
 import { useCart } from '../../hooks/useCart';
 import type { MenuFilters as MenuFiltersType } from '../../types';
 
@@ -33,6 +34,13 @@ const Restaurant: React.FC = () => {
             dispatch(fetchRestaurantMenu(id));
         }
     }, [id, dispatch]);
+
+    // Update restaurant info in cart when restaurant is loaded
+    useEffect(() => {
+        if (selectedRestaurant && (restaurantId === selectedRestaurant.id || !restaurantId)) {
+            dispatch(setRestaurantInfo(selectedRestaurant));
+        }
+    }, [selectedRestaurant, restaurantId, dispatch]);
 
     // Check if there are items from a different restaurant
     const hasDifferentRestaurantItems = restaurantId && restaurantId !== id && cartItems.length > 0;

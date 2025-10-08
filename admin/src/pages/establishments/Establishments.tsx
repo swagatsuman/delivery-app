@@ -38,14 +38,8 @@ const Establishments: React.FC = () => {
     };
 
     return (
-        <Layout>
+        <Layout title="Establishments">
             <div className="p-6 space-y-6">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <h1 className="text-2xl font-bold text-secondary-900">Establishments</h1>
-                        <p className="text-secondary-600">Manage all food establishments on your platform</p>
-                    </div>
-                </div>
 
                 <EstablishmentFilters
                     filters={filters}

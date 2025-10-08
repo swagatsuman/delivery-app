@@ -5,7 +5,7 @@ import {
     onAuthStateChanged,
     type User as FirebaseUser
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import type { User, DeliveryAgentDetails } from '../types';
 
@@ -102,7 +102,7 @@ export const authService = {
         }
     },
 
-    async updateAvailabilityStatus(isAvailable: boolean) {
+    async updateAvailability(isAvailable: boolean) {
         try {
             const user = auth.currentUser;
             if (!user) throw new Error('User not authenticated');
@@ -117,17 +117,71 @@ export const authService = {
         }
     },
 
+    // Alias for backward compatibility
+    async updateAvailabilityStatus(isAvailable: boolean) {
+        return this.updateAvailability(isAvailable);
+    },
+
     async updateLocation(coordinates: { lat: number; lng: number }) {
         try {
             const user = auth.currentUser;
-            if (!user) throw new Error('User not authenticated');
+            if (!user) {
+                console.debug('Cannot update location: User not authenticated');
+                return;
+            }
 
             await updateDoc(doc(db, 'deliveryAgents', user.uid), {
                 currentLocation: coordinates,
                 updatedAt: new Date()
             });
         } catch (error: any) {
-            throw new Error(error.message || 'Failed to update location');
+            // Silently fail location updates to avoid interfering with real-time listeners
+            console.debug('Location update failed:', error.message);
+        }
+    },
+
+    async calculateAgentStats(agentId: string) {
+        try {
+            // Fetch all orders for this delivery agent
+            const ordersQuery = query(
+                collection(db, 'orders'),
+                where('deliveryAgentId', '==', agentId)
+            );
+            const ordersSnapshot = await getDocs(ordersQuery);
+            const orders = ordersSnapshot.docs.map(doc => doc.data());
+
+            // Calculate stats
+            const deliveredOrders = orders.filter(order => order.status === 'delivered');
+            const totalDeliveries = deliveredOrders.length;
+            const totalEarnings = deliveredOrders.reduce((sum, order) => sum + ((order.deliveryFee || 0) * 0.8), 0);
+
+            // Calculate ratings from ratings collection
+            const ratingsQuery = query(
+                collection(db, 'ratings'),
+                where('deliveryAgentId', '==', agentId)
+            );
+            const ratingsSnapshot = await getDocs(ratingsQuery);
+            const ratings = ratingsSnapshot.docs.map(doc => doc.data());
+
+            const totalRatings = ratings.length;
+            const averageRating = totalRatings > 0
+                ? ratings.reduce((sum, rating) => sum + (rating.deliveryRating || 0), 0) / totalRatings
+                : 0;
+
+            return {
+                totalDeliveries,
+                earnings: totalEarnings,
+                rating: averageRating,
+                totalRatings
+            };
+        } catch (error) {
+            console.error('Error calculating agent stats:', error);
+            return {
+                totalDeliveries: 0,
+                earnings: 0,
+                rating: 0,
+                totalRatings: 0
+            };
         }
     },
 
@@ -142,7 +196,17 @@ export const authService = {
                             const agentDoc = await getDoc(doc(db, 'deliveryAgents', user.uid));
                             if (agentDoc.exists()) {
                                 const deliveryAgentDetails = agentDoc.data() as DeliveryAgentDetails;
-                                callback({user, userData: {...userData, deliveryAgentDetails}});
+
+                                // Calculate stats from orders
+                                const stats = await this.calculateAgentStats(user.uid);
+
+                                // Merge stats with delivery agent details
+                                const enrichedDetails = {
+                                    ...deliveryAgentDetails,
+                                    ...stats
+                                };
+
+                                callback({user, userData: {...userData, deliveryAgentDetails: enrichedDetails}});
                             } else {
                                 callback({user, userData});
                             }

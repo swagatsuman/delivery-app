@@ -10,6 +10,7 @@ import { Button } from '../../components/ui/Button';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { fetchNearbyRestaurants, fetchCategories } from '../../store/slices/restaurantSlice';
 import { fetchAddresses, initializeLocation } from '../../store/slices/locationSlice';
+import { fetchOrders } from '../../store/slices/orderSlice';
 import type { Restaurant, Category } from '../../types';
 
 const Home: React.FC = () => {
@@ -41,6 +42,13 @@ const Home: React.FC = () => {
             dispatch(fetchCategories());
         }
     }, [currentLocation, dispatch]);
+
+    // Fetch orders when user is available (for active order footer)
+    useEffect(() => {
+        if (user?.uid) {
+            dispatch(fetchOrders(user.uid));
+        }
+    }, [user, dispatch]);
 
     const handleRestaurantClick = (restaurant: Restaurant) => {
         navigate(`/restaurant/${restaurant.id}`);

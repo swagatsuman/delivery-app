@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { Layout } from '../../components/layout/Layout';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { useAuth } from '../../hooks/useAuth';
-import { formatCurrency } from '../../utils/helpers';
+import { logoutUser } from '../../store/slices/authSlice';
+import { useAppDispatch } from '../../hooks/useAppDispatch';
 import {
     User,
     Phone,
@@ -14,308 +14,213 @@ import {
     Car,
     FileText,
     Star,
-    CreditCard,
-    Edit,
-    Save,
-    X
+    ChevronRight,
+    LogOut,
+    Shield,
+    Bell,
+    HelpCircle,
+    IndianRupee,
+    Package,
+    TrendingUp
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const Profile: React.FC = () => {
     const { user } = useAuth();
-    const [isEditing, setIsEditing] = useState(false);
-    const [formData, setFormData] = useState({
-        name: user?.name || '',
-        phone: user?.phone || '',
-        email: user?.email || ''
-    });
+    const dispatch = useAppDispatch();
+    const navigate = useNavigate();
 
-    const handleSave = () => {
-        // TODO: Implement profile update
-        setIsEditing(false);
-    };
-
-    const handleCancel = () => {
-        setFormData({
-            name: user?.name || '',
-            phone: user?.phone || '',
-            email: user?.email || ''
-        });
-        setIsEditing(false);
+    const handleLogout = async () => {
+        try {
+            await dispatch(logoutUser()).unwrap();
+            navigate('/login');
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to logout');
+        }
     };
 
     if (!user) {
         return (
-            <Layout title="Profile">
-                <div className="flex items-center justify-center h-96">
-                    <p className="text-secondary-500">Loading profile...</p>
-                </div>
-            </Layout>
+            <div className="min-h-screen bg-background flex items-center justify-center">
+                <p className="text-secondary-500">Loading profile...</p>
+            </div>
         );
     }
 
     const agent = user.deliveryAgentDetails;
 
     return (
-        <Layout title="My Profile">
-            <div className="p-6 space-y-6">
-                {/* Profile Header */}
-                <Card padding="md">
-                    <div className="flex items-start justify-between">
-                        <div className="flex items-center space-x-4">
-                            <div className="h-20 w-20 bg-primary-100 rounded-full flex items-center justify-center">
-                                <User className="h-10 w-10 text-primary-600" />
-                            </div>
-                            <div>
-                                <h2 className="text-2xl font-bold text-secondary-900">{user.name}</h2>
-                                <p className="text-secondary-600">{user.email}</p>
-                                <div className="flex items-center space-x-4 mt-2">
-                                    <Badge variant={user.status === 'active' ? 'success' : 'warning'}>
-                                        {user.status.toUpperCase()}
-                                    </Badge>
-                                    {agent && (
-                                        <div className="flex items-center space-x-1">
-                                            <Star className="h-4 w-4 text-warning-500" />
-                                            <span className="text-sm font-medium">
-                                                {agent.averageRating?.toFixed(1) || '0.0'} ({agent.totalRatings || 0} reviews)
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                        <Button
-                            variant="secondary"
-                            onClick={() => setIsEditing(!isEditing)}
-                            icon={<Edit className="h-4 w-4" />}
-                        >
-                            Edit Profile
-                        </Button>
+        <div className="min-h-screen bg-background">
+            {/* Profile Header */}
+            <div className="bg-primary-500 text-white px-4 py-8">
+                <div className="flex items-center space-x-4 mb-6">
+                    <div className="h-20 w-20 bg-white/20 rounded-full flex items-center justify-center">
+                        <User className="h-10 w-10 text-white" />
                     </div>
-                </Card>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Personal Information */}
-                    <div className="lg:col-span-2 space-y-6">
-                        <Card title="Personal Information" padding="md">
-                            {isEditing ? (
-                                <div className="space-y-4">
-                                    <Input
-                                        label="Full Name"
-                                        value={formData.name}
-                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                        icon={<User className="h-4 w-4" />}
-                                    />
-                                    <Input
-                                        label="Phone Number"
-                                        value={formData.phone}
-                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                        icon={<Phone className="h-4 w-4" />}
-                                    />
-                                    <Input
-                                        label="Email Address"
-                                        value={formData.email}
-                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        icon={<Mail className="h-4 w-4" />}
-                                        disabled
-                                    />
-                                    <div className="flex space-x-3">
-                                        <Button onClick={handleSave} icon={<Save className="h-4 w-4" />}>
-                                            Save Changes
-                                        </Button>
-                                        <Button variant="secondary" onClick={handleCancel} icon={<X className="h-4 w-4" />}>
-                                            Cancel
-                                        </Button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    <div className="flex items-center space-x-3">
-                                        <User className="h-5 w-5 text-secondary-400" />
-                                        <div>
-                                            <p className="text-sm text-secondary-600">Full Name</p>
-                                            <p className="font-medium text-secondary-900">{user.name}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center space-x-3">
-                                        <Phone className="h-5 w-5 text-secondary-400" />
-                                        <div>
-                                            <p className="text-sm text-secondary-600">Phone Number</p>
-                                            <p className="font-medium text-secondary-900">{user.phone}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center space-x-3">
-                                        <Mail className="h-5 w-5 text-secondary-400" />
-                                        <div>
-                                            <p className="text-sm text-secondary-600">Email Address</p>
-                                            <p className="font-medium text-secondary-900">{user.email}</p>
-                                        </div>
-                                    </div>
+                    <div className="flex-1">
+                        <h2 className="text-2xl font-bold">{user.name}</h2>
+                        <p className="text-primary-100">{user.phone}</p>
+                        <div className="flex items-center space-x-2 mt-2">
+                            {agent && (
+                                <div className="flex items-center space-x-1 bg-white/20 rounded-full px-3 py-1">
+                                    <Star className="h-4 w-4 text-warning-300 fill-current" />
+                                    <span className="text-sm font-medium">
+                                        {agent.averageRating?.toFixed(1) || '0.0'}
+                                    </span>
                                 </div>
                             )}
-                        </Card>
-
-                        {/* Vehicle Information */}
-                        {agent && (
-                            <Card title="Vehicle Information" padding="md">
-                                <div className="grid grid-cols-2 gap-6">
-                                    <div className="flex items-center space-x-3">
-                                        <Car className="h-5 w-5 text-secondary-400" />
-                                        <div>
-                                            <p className="text-sm text-secondary-600">Vehicle Type</p>
-                                            <p className="font-medium text-secondary-900 capitalize">{agent.vehicleType}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center space-x-3">
-                                        <FileText className="h-5 w-5 text-secondary-400" />
-                                        <div>
-                                            <p className="text-sm text-secondary-600">Vehicle Number</p>
-                                            <p className="font-medium text-secondary-900">{agent.vehicleNumber}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center space-x-3">
-                                        <FileText className="h-5 w-5 text-secondary-400" />
-                                        <div>
-                                            <p className="text-sm text-secondary-600">License Number</p>
-                                            <p className="font-medium text-secondary-900">{agent.licenseNumber}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center space-x-3">
-                                        <MapPin className="h-5 w-5 text-secondary-400" />
-                                        <div>
-                                            <p className="text-sm text-secondary-600">Status</p>
-                                            <Badge variant={agent.isAvailable ? 'success' : 'error'}>
-                                                {agent.isAvailable ? 'Available' : 'Offline'}
-                                            </Badge>
-                                        </div>
-                                    </div>
-                                </div>
-                            </Card>
-                        )}
-
-                        {/* Emergency Contact */}
-                        {agent?.emergencyContact && (
-                            <Card title="Emergency Contact" padding="md">
-                                <div className="space-y-4">
-                                    <div>
-                                        <p className="text-sm text-secondary-600">Name</p>
-                                        <p className="font-medium text-secondary-900">{agent.emergencyContact.name}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-secondary-600">Phone</p>
-                                        <p className="font-medium text-secondary-900">{agent.emergencyContact.phone}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-secondary-600">Relationship</p>
-                                        <p className="font-medium text-secondary-900 capitalize">{agent.emergencyContact.relationship}</p>
-                                    </div>
-                                </div>
-                            </Card>
-                        )}
+                            <Badge variant={user.status === 'active' ? 'success' : 'warning'}>
+                                {user.status.toUpperCase()}
+                            </Badge>
+                        </div>
                     </div>
+                </div>
 
-                    {/* Sidebar */}
-                    <div className="space-y-6">
-                        {/* Stats Card */}
-                        {agent && (
-                            <Card title="Delivery Stats" padding="md">
-                                <div className="space-y-4">
-                                    <div className="flex justify-between">
-                                        <span className="text-secondary-600">Total Deliveries:</span>
-                                        <span className="font-semibold text-secondary-900">{agent.totalDeliveries}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-secondary-600">Completed:</span>
-                                        <span className="font-semibold text-success-600">{agent.completedDeliveries}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-secondary-600">Cancelled:</span>
-                                        <span className="font-semibold text-error-600">{agent.cancelledDeliveries}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-secondary-600">Success Rate:</span>
-                                        <span className="font-semibold text-secondary-900">
-                                            {agent.totalDeliveries > 0 ?
-                                                Math.round((agent.completedDeliveries / agent.totalDeliveries) * 100) : 0}%
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-secondary-600">Total Earnings:</span>
-                                        <span className="font-semibold text-success-600">{formatCurrency(agent.earnings)}</span>
-                                    </div>
-                                </div>
-                            </Card>
-                        )}
-
-                        {/* Bank Details */}
-                        {agent?.bankDetails && (
-                            <Card title="Bank Details" padding="md">
-                                <div className="space-y-4">
-                                    <div className="flex items-center space-x-3">
-                                        <CreditCard className="h-5 w-5 text-secondary-400" />
-                                        <div>
-                                            <p className="text-sm text-secondary-600">Account Holder</p>
-                                            <p className="font-medium text-secondary-900">{agent.bankDetails.accountHolderName}</p>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-secondary-600">Account Number</p>
-                                        <p className="font-medium text-secondary-900">
-                                            ****{agent.bankDetails.accountNumber.slice(-4)}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-secondary-600">IFSC Code</p>
-                                        <p className="font-medium text-secondary-900">{agent.bankDetails.ifscCode}</p>
-                                    </div>
-                                </div>
-                            </Card>
-                        )}
-
-                        {/* Working Hours */}
-                        {agent?.workingHours && (
-                            <Card title="Working Hours" padding="md">
-                                <div className="space-y-3">
-                                    <div className="flex justify-between">
-                                        <span className="text-secondary-600">Start Time:</span>
-                                        <span className="font-medium text-secondary-900">{agent.workingHours.start}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-secondary-600">End Time:</span>
-                                        <span className="font-medium text-secondary-900">{agent.workingHours.end}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-secondary-600">Currently:</span>
-                                        <Badge variant={agent.workingHours.isOnline ? 'success' : 'error'}>
-                                            {agent.workingHours.isOnline ? 'Online' : 'Offline'}
-                                        </Badge>
-                                    </div>
-                                </div>
-                            </Card>
-                        )}
-
-                        {/* KYC Documents */}
-                        {agent?.kycDocuments && (
-                            <Card title="KYC Documents" padding="md">
-                                <div className="space-y-3">
-                                    {Object.entries(agent.kycDocuments).map(([key, value]) => (
-                                        <div key={key} className="flex items-center justify-between">
-                                            <span className="text-sm text-secondary-600 capitalize">
-                                                {key === 'aadhar' ? 'Aadhar Card' :
-                                                    key === 'license' ? 'Driving License' :
-                                                        key === 'pan' ? 'PAN Card' : 'Profile Photo'}:
-                                            </span>
-                                            <Badge variant={value ? 'success' : 'error'} size="sm">
-                                                {value ? 'Verified' : 'Pending'}
-                                            </Badge>
-                                        </div>
-                                    ))}
-                                </div>
-                            </Card>
-                        )}
+                {/* Quick Stats */}
+                <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-white/10 rounded-lg p-3 text-center">
+                        <Package className="h-5 w-5 mx-auto mb-1" />
+                        <div className="text-xl font-bold">{agent?.totalDeliveries || 0}</div>
+                        <div className="text-xs text-primary-100">Deliveries</div>
+                    </div>
+                    <div className="bg-white/10 rounded-lg p-3 text-center">
+                        <IndianRupee className="h-5 w-5 mx-auto mb-1" />
+                        <div className="text-xl font-bold">₹{agent?.earnings?.toFixed(0) || 0}</div>
+                        <div className="text-xs text-primary-100">Earnings</div>
+                    </div>
+                    <div className="bg-white/10 rounded-lg p-3 text-center">
+                        <TrendingUp className="h-5 w-5 mx-auto mb-1" />
+                        <div className="text-xl font-bold">{agent?.totalRatings || 0}</div>
+                        <div className="text-xs text-primary-100">Reviews</div>
                     </div>
                 </div>
             </div>
-        </Layout>
+
+            {/* Profile Info */}
+            <div className="px-4 py-6 space-y-4">
+                {/* Personal Information */}
+                <Card>
+                    <div className="p-4">
+                        <h3 className="text-lg font-semibold text-secondary-900 mb-4">Personal Information</h3>
+
+                        <div className="space-y-4">
+                            <div className="flex items-center space-x-3">
+                                <div className="p-2 bg-secondary-100 rounded-lg">
+                                    <Mail className="h-5 w-5 text-secondary-600" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-xs text-secondary-600">Email</p>
+                                    <p className="text-sm font-medium text-secondary-900">{user.email}</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center space-x-3">
+                                <div className="p-2 bg-secondary-100 rounded-lg">
+                                    <Phone className="h-5 w-5 text-secondary-600" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-xs text-secondary-600">Phone</p>
+                                    <p className="text-sm font-medium text-secondary-900">{user.phone}</p>
+                                </div>
+                            </div>
+
+                            {agent?.address && (
+                                <div className="flex items-center space-x-3">
+                                    <div className="p-2 bg-secondary-100 rounded-lg">
+                                        <MapPin className="h-5 w-5 text-secondary-600" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-xs text-secondary-600">Address</p>
+                                        <p className="text-sm font-medium text-secondary-900">
+                                            {agent.address.city}, {agent.address.state}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </Card>
+
+                {/* Vehicle Information */}
+                {agent?.vehicleDetails && (
+                    <Card>
+                        <div className="p-4">
+                            <h3 className="text-lg font-semibold text-secondary-900 mb-4">Vehicle Information</h3>
+
+                            <div className="space-y-4">
+                                <div className="flex items-center space-x-3">
+                                    <div className="p-2 bg-secondary-100 rounded-lg">
+                                        <Car className="h-5 w-5 text-secondary-600" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-xs text-secondary-600">Vehicle Type</p>
+                                        <p className="text-sm font-medium text-secondary-900 capitalize">
+                                            {agent.vehicleDetails.type || 'N/A'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center space-x-3">
+                                    <div className="p-2 bg-secondary-100 rounded-lg">
+                                        <FileText className="h-5 w-5 text-secondary-600" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-xs text-secondary-600">License Plate</p>
+                                        <p className="text-sm font-medium text-secondary-900">
+                                            {agent.vehicleDetails.licensePlate || 'N/A'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+                )}
+
+                {/* Menu Options */}
+                <Card>
+                    <div className="divide-y divide-secondary-200">
+                        <button className="w-full flex items-center justify-between p-4 hover:bg-secondary-50 transition-colors">
+                            <div className="flex items-center space-x-3">
+                                <Bell className="h-5 w-5 text-secondary-600" />
+                                <span className="font-medium text-secondary-900">Notifications</span>
+                            </div>
+                            <ChevronRight className="h-5 w-5 text-secondary-400" />
+                        </button>
+
+                        <button className="w-full flex items-center justify-between p-4 hover:bg-secondary-50 transition-colors">
+                            <div className="flex items-center space-x-3">
+                                <Shield className="h-5 w-5 text-secondary-600" />
+                                <span className="font-medium text-secondary-900">Privacy & Security</span>
+                            </div>
+                            <ChevronRight className="h-5 w-5 text-secondary-400" />
+                        </button>
+
+                        <button className="w-full flex items-center justify-between p-4 hover:bg-secondary-50 transition-colors">
+                            <div className="flex items-center space-x-3">
+                                <HelpCircle className="h-5 w-5 text-secondary-600" />
+                                <span className="font-medium text-secondary-900">Help & Support</span>
+                            </div>
+                            <ChevronRight className="h-5 w-5 text-secondary-400" />
+                        </button>
+                    </div>
+                </Card>
+
+                {/* Logout Button */}
+                <Button
+                    onClick={handleLogout}
+                    variant="secondary"
+                    className="w-full"
+                    icon={<LogOut className="h-5 w-5" />}
+                >
+                    Logout
+                </Button>
+
+                {/* App Version */}
+                <p className="text-center text-xs text-secondary-500 pt-4">
+                    Version 1.0.0
+                </p>
+            </div>
+        </div>
     );
 };
 

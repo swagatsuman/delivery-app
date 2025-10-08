@@ -10,7 +10,8 @@ import { useAppDispatch } from '../../hooks/useAppDispatch';
 import { updateEstablishmentProfile } from '../../store/slices/authSlice';
 import { validateEmail, validatePhone, validateGSTIN } from '../../utils/helpers';
 import { CUISINE_TYPES } from '../../utils/constants';
-import { Save, Upload, MapPin, Clock, Star } from 'lucide-react';
+import { storageService } from '../../services/storageService';
+import { Save, Upload, MapPin, Clock, Star, X, ImageIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface ProfileFormData {
@@ -36,8 +37,12 @@ const Profile: React.FC = () => {
     const { user } = useAuth();
     const dispatch = useAppDispatch();
     const [loading, setLoading] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const [profileImage, setProfileImage] = useState<string | null>(
+        user?.establishmentDetails?.profileImage || null
+    );
     const [selectedCuisines, setSelectedCuisines] = useState<string[]>(
-        user?.restaurantDetails?.cuisineTypes || []
+        user?.establishmentDetails?.cuisineTypes || []
     );
 
     const {
@@ -47,22 +52,22 @@ const Profile: React.FC = () => {
         setValue
     } = useForm<ProfileFormData>({
         defaultValues: {
-            businessName: user?.restaurantDetails?.businessName || '',
-            ownerName: user?.restaurantDetails?.ownerName || '',
+            businessName: user?.establishmentDetails?.businessName || '',
+            ownerName: user?.establishmentDetails?.ownerName || '',
             email: user?.email || '',
             phone: user?.phone || '',
-            gstin: user?.restaurantDetails?.gstin || '',
-            description: user?.restaurantDetails?.description || '',
-            street: user?.restaurantDetails?.address?.street || '',
-            city: user?.restaurantDetails?.address?.city || '',
-            state: user?.restaurantDetails?.address?.state || '',
-            pincode: user?.restaurantDetails?.address?.pincode || '',
-            deliveryRadius: user?.restaurantDetails?.deliveryRadius || 5,
-            minimumOrderValue: user?.restaurantDetails?.minimumOrderValue || 100,
-            deliveryFee: user?.restaurantDetails?.deliveryFee || 30,
-            estimatedDeliveryTime: user?.restaurantDetails?.estimatedDeliveryTime || 30,
-            openTime: user?.restaurantDetails?.operatingHours?.open || '09:00',
-            closeTime: user?.restaurantDetails?.operatingHours?.close || '23:00'
+            gstin: user?.establishmentDetails?.gstin || '',
+            description: user?.establishmentDetails?.description || '',
+            street: user?.establishmentDetails?.address?.street || '',
+            city: user?.establishmentDetails?.address?.city || '',
+            state: user?.establishmentDetails?.address?.state || '',
+            pincode: user?.establishmentDetails?.address?.pincode || '',
+            deliveryRadius: user?.establishmentDetails?.deliveryRadius || 5,
+            minimumOrderValue: user?.establishmentDetails?.minimumOrderValue || 100,
+            deliveryFee: user?.establishmentDetails?.deliveryFee || 30,
+            estimatedDeliveryTime: user?.establishmentDetails?.estimatedDeliveryTime || 30,
+            openTime: user?.establishmentDetails?.operatingHours?.open || '09:00',
+            closeTime: user?.establishmentDetails?.operatingHours?.close || '23:00'
         }
     });
 
@@ -72,19 +77,20 @@ const Profile: React.FC = () => {
             const profileData = {
                 ...data,
                 cuisineTypes: selectedCuisines,
+                profileImage: profileImage || '',
                 address: {
-                    id: user?.restaurantDetails?.address?.id || 'primary',
+                    id: user?.establishmentDetails?.address?.id || 'primary',
                     label: 'Restaurant Address',
                     street: data.street,
                     city: data.city,
                     state: data.state,
                     pincode: data.pincode,
-                    coordinates: user?.restaurantDetails?.address?.coordinates || { lat: 0, lng: 0 }
+                    coordinates: user?.establishmentDetails?.address?.coordinates || { lat: 0, lng: 0 }
                 },
                 operatingHours: {
                     open: data.openTime,
                     close: data.closeTime,
-                    isOpen: user?.restaurantDetails?.operatingHours?.isOpen || false
+                    isOpen: user?.establishmentDetails?.operatingHours?.isOpen || false
                 }
             };
 
@@ -105,11 +111,55 @@ const Profile: React.FC = () => {
         );
     };
 
+    const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file || !user?.uid) return;
+
+        // Validate file
+        const validation = storageService.validateImageFile(file);
+        if (!validation.valid) {
+            toast.error(validation.error || 'Invalid file');
+            return;
+        }
+
+        setUploadingImage(true);
+        try {
+            // Delete old image if exists
+            if (profileImage) {
+                await storageService.deleteProfileImage(profileImage);
+            }
+
+            // Upload new image
+            const imageUrl = await storageService.uploadProfileImage(file, user.uid);
+            setProfileImage(imageUrl);
+            toast.success('Image uploaded successfully');
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to upload image');
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
+    const handleImageDelete = async () => {
+        if (!profileImage) return;
+
+        setUploadingImage(true);
+        try {
+            await storageService.deleteProfileImage(profileImage);
+            setProfileImage(null);
+            toast.success('Image removed successfully');
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to remove image');
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
     const stats = {
-        rating: user?.restaurantDetails?.rating || 0,
-        totalRatings: user?.restaurantDetails?.totalRatings || 0,
-        totalOrders: user?.restaurantDetails?.totalOrders || 0,
-        revenue: user?.restaurantDetails?.revenue || 0
+        rating: user?.establishmentDetails?.rating || 0,
+        totalRatings: user?.establishmentDetails?.totalRatings || 0,
+        totalOrders: user?.establishmentDetails?.totalOrders || 0,
+        revenue: user?.establishmentDetails?.revenue || 0
     };
 
     return (
@@ -351,8 +401,8 @@ const Profile: React.FC = () => {
                                         <h4 className="text-sm font-medium text-secondary-900">Current Status</h4>
                                         <p className="text-sm text-secondary-600">
                                             Restaurant is currently {' '}
-                                            <span className={user?.restaurantDetails?.operatingHours?.isOpen ? 'text-success-600' : 'text-error-600'}>
-                                                {user?.restaurantDetails?.operatingHours?.isOpen ? 'Open' : 'Closed'}
+                                            <span className={user?.establishmentDetails?.operatingHours?.isOpen ? 'text-success-600' : 'text-error-600'}>
+                                                {user?.establishmentDetails?.operatingHours?.isOpen ? 'Open' : 'Closed'}
                                             </span>
                                         </p>
                                     </div>
@@ -387,35 +437,70 @@ const Profile: React.FC = () => {
                         </Card>
                     </div>
 
-                    {/* Restaurant Images */}
-                    <Card title="Restaurant Images" padding="md">
+                    {/* Restaurant Profile Image */}
+                    <Card title="Restaurant Profile Image" padding="md">
                         <div className="space-y-4">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                {/* Existing Images */}
-                                {user?.restaurantDetails?.images?.map((image, index) => (
-                                    <div key={index} className="relative group">
+                            <div className="flex flex-col items-center justify-center">
+                                {profileImage ? (
+                                    <div className="relative group">
                                         <img
-                                            src={image}
-                                            alt={`Restaurant ${index + 1}`}
-                                            className="w-full h-32 object-cover rounded-lg border border-secondary-200"
+                                            src={profileImage}
+                                            alt="Restaurant Profile"
+                                            className="w-full max-w-md h-64 object-cover rounded-lg border-2 border-secondary-200"
                                         />
                                         <button
                                             type="button"
-                                            className="absolute top-2 right-2 bg-error-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={handleImageDelete}
+                                            disabled={uploadingImage}
+                                            className="absolute top-3 right-3 bg-error-500 hover:bg-error-600 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
                                         >
-                                            ×
+                                            <X className="h-5 w-5" />
                                         </button>
                                     </div>
-                                ))}
-
-                                {/* Upload New Image */}
-                                <div className="border-2 border-dashed border-secondary-300 rounded-lg p-6 text-center hover:border-secondary-400 transition-colors cursor-pointer">
-                                    <Upload className="h-8 w-8 mx-auto text-secondary-400 mb-2" />
-                                    <p className="text-sm text-secondary-600">Add Image</p>
-                                </div>
+                                ) : (
+                                    <label className="w-full max-w-md border-2 border-dashed border-secondary-300 rounded-lg p-12 text-center hover:border-primary-400 hover:bg-primary-50 transition-colors cursor-pointer">
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/jpg,image/png,image/webp"
+                                            onChange={handleImageUpload}
+                                            disabled={uploadingImage}
+                                            className="hidden"
+                                        />
+                                        {uploadingImage ? (
+                                            <div className="flex flex-col items-center">
+                                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4"></div>
+                                                <p className="text-sm text-secondary-600">Uploading...</p>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center">
+                                                <ImageIcon className="h-16 w-16 mx-auto text-secondary-400 mb-4" />
+                                                <p className="text-sm font-medium text-secondary-700 mb-2">Upload Profile Image</p>
+                                                <p className="text-xs text-secondary-500">Click to browse or drag and drop</p>
+                                                <p className="text-xs text-secondary-400 mt-2">JPEG, PNG, or WebP (Max 5MB)</p>
+                                            </div>
+                                        )}
+                                    </label>
+                                )}
                             </div>
-                            <p className="text-xs text-secondary-500">
-                                Upload high-quality images of your restaurant, food, and ambiance. Maximum 8 images allowed.
+
+                            {profileImage && (
+                                <div className="text-center">
+                                    <label className="inline-flex items-center justify-center px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg cursor-pointer transition-colors disabled:opacity-50">
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/jpg,image/png,image/webp"
+                                            onChange={handleImageUpload}
+                                            disabled={uploadingImage}
+                                            className="hidden"
+                                        />
+                                        <Upload className="h-4 w-4 mr-2" />
+                                        {uploadingImage ? 'Uploading...' : 'Change Image'}
+                                    </label>
+                                </div>
+                            )}
+
+                            <p className="text-xs text-center text-secondary-500">
+                                Upload a high-quality image of your restaurant. This will be displayed on your profile.
                             </p>
                         </div>
                     </Card>

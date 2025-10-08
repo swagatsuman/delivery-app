@@ -1,8 +1,9 @@
-import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import type { CartState, CartItem, MenuItem, Address, CartPricing, SelectedCustomization } from '../../types';
-import { generateId } from '../../utils/helpers';
+import { createSlice, type PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
+import type { CartState, CartItem, MenuItem, Address, CartPricing, SelectedCustomization, Restaurant } from '../../types';
+import { generateId, calculateDistance } from '../../utils/helpers';
 import { parsePrice, getFinalPrice } from '../../utils/priceUtils';
 import { cartService } from '../../services/cartService';
+import { settingsService } from '../../services/settingsService';
 
 const initialState: CartState = {
     ...cartService.loadCart(),
@@ -16,11 +17,23 @@ const initialState: CartState = {
         total: 0
     },
     loading: false,
-    error: null
+    error: null,
+    restaurantAddress: null
 };
 
+// Add restaurant address to CartState interface extension
+declare module '../../types' {
+    interface CartState {
+        restaurantAddress?: Address | null;
+    }
+}
+
 // Helper function to calculate pricing
-const calculatePricing = (items: CartItem[], deliveryFee: number = 30): CartPricing => {
+const calculatePricing = async (
+    items: CartItem[],
+    deliveryAddress: Address | null = null,
+    restaurantAddress: Address | null = null
+): Promise<CartPricing> => {
     console.log('Calculating pricing for items:', items);
 
     const itemTotal = items.reduce((total, item) => {
@@ -30,14 +43,31 @@ const calculatePricing = (items: CartItem[], deliveryFee: number = 30): CartPric
 
     console.log('Item total:', itemTotal);
 
-    const taxes = Math.round(itemTotal * 0.05); // 5% tax
+    // Get delivery settings from Firestore
+    const settings = await settingsService.getDeliverySettings();
+
+    // Calculate distance if both addresses are available
+    let distance = 0;
+    if (deliveryAddress?.coordinates && restaurantAddress?.coordinates) {
+        distance = calculateDistance(
+            restaurantAddress.coordinates.lat,
+            restaurantAddress.coordinates.lng,
+            deliveryAddress.coordinates.lat,
+            deliveryAddress.coordinates.lng
+        );
+        console.log(`Distance between restaurant and delivery address: ${distance}km`);
+    }
+
+    // Calculate delivery fee based on new rules
+    const { customerFee } = settingsService.calculateDeliveryFee(itemTotal, distance, settings);
+
+    const taxes = Math.round(itemTotal * (settings.taxPercentage / 100));
     const discount = 0; // Apply coupon discounts here
-    const actualDeliveryFee = itemTotal >= 299 ? 0 : deliveryFee; // Free delivery above 299
-    const total = itemTotal + actualDeliveryFee + taxes - discount;
+    const total = itemTotal + customerFee + taxes - discount;
 
     const pricing = {
         itemTotal,
-        deliveryFee: actualDeliveryFee,
+        deliveryFee: customerFee,
         taxes,
         discount,
         total: Math.max(0, total)
@@ -66,6 +96,27 @@ const calculateItemPrice = (menuItem: MenuItem, quantity: number, customizations
     return totalPrice;
 };
 
+// Async thunk to recalculate pricing
+export const recalculateCartPricing = createAsyncThunk(
+    'cart/recalculateCartPricing',
+    async (_, { getState }) => {
+        const state = getState() as { cart: CartState };
+        const { items, deliveryAddress, restaurantAddress } = state.cart;
+        return await calculatePricing(items, deliveryAddress, restaurantAddress);
+    }
+);
+
+// Async thunk to set restaurant info and recalculate
+export const setRestaurantInfo = createAsyncThunk(
+    'cart/setRestaurantInfo',
+    async (restaurant: Restaurant, { getState }) => {
+        const state = getState() as { cart: CartState };
+        const { items, deliveryAddress } = state.cart;
+        const pricing = await calculatePricing(items, deliveryAddress, restaurant.address);
+        return { restaurantAddress: restaurant.address, pricing };
+    }
+);
+
 const cartSlice = createSlice({
     name: 'cart',
     initialState,
@@ -84,6 +135,7 @@ const cartSlice = createSlice({
             // If adding from different restaurant, clear cart
             if (state.restaurantId && state.restaurantId !== restaurantId) {
                 state.items = [];
+                state.restaurantAddress = null;
             }
 
             state.restaurantId = restaurantId;
@@ -120,8 +172,8 @@ const cartSlice = createSlice({
                 console.log('Added new item:', cartItem);
             }
 
-            // Recalculate pricing
-            state.pricing = calculatePricing(state.items);
+            // Update item total immediately (delivery fee will be recalculated async)
+            state.pricing.itemTotal = state.items.reduce((total, item) => total + item.totalPrice, 0);
 
             // Save to localStorage
             cartService.saveCart(state.items, state.restaurantId);
@@ -156,8 +208,8 @@ const cartSlice = createSlice({
 
                 console.log('Updated cart item:', state.items[itemIndex]);
 
-                // Recalculate pricing
-                state.pricing = calculatePricing(state.items);
+                // Update item total immediately
+                state.pricing.itemTotal = state.items.reduce((total, item) => total + item.totalPrice, 0);
 
                 // Save to localStorage
                 cartService.saveCart(state.items, state.restaurantId);
@@ -170,19 +222,21 @@ const cartSlice = createSlice({
             // Clear restaurant if no items
             if (state.items.length === 0) {
                 state.restaurantId = null;
+                state.restaurantAddress = null;
                 cartService.clearCart();
             } else {
                 // Save to localStorage
                 cartService.saveCart(state.items, state.restaurantId);
             }
 
-            // Recalculate pricing
-            state.pricing = calculatePricing(state.items);
+            // Update item total immediately
+            state.pricing.itemTotal = state.items.reduce((total, item) => total + item.totalPrice, 0);
         },
 
         clearCart: (state) => {
             state.items = [];
             state.restaurantId = null;
+            state.restaurantAddress = null;
             state.coupon = null;
             state.pricing = {
                 itemTotal: 0,
@@ -196,25 +250,17 @@ const cartSlice = createSlice({
 
         setDeliveryAddress: (state, action: PayloadAction<Address>) => {
             state.deliveryAddress = action.payload;
-            // Recalculate pricing with updated delivery fee if needed
-            state.pricing = calculatePricing(state.items);
+            // Pricing will be recalculated via async thunk
         },
 
         applyCoupon: (state, action: PayloadAction<any>) => {
             state.coupon = action.payload;
-            // Recalculate pricing with coupon discount
-            state.pricing = calculatePricing(state.items);
+            // Pricing will be recalculated via async thunk
         },
 
         removeCoupon: (state) => {
             state.coupon = null;
-            // Recalculate pricing without coupon
-            state.pricing = calculatePricing(state.items);
-        },
-
-        // Add action to recalculate pricing manually
-        recalculatePricing: (state) => {
-            state.pricing = calculatePricing(state.items);
+            // Pricing will be recalculated via async thunk
         },
 
         setLoading: (state, action: PayloadAction<boolean>) => {
@@ -224,6 +270,16 @@ const cartSlice = createSlice({
         setError: (state, action: PayloadAction<string | null>) => {
             state.error = action.payload;
         }
+    },
+    extraReducers: (builder) => {
+        builder
+            .addCase(recalculateCartPricing.fulfilled, (state, action) => {
+                state.pricing = action.payload;
+            })
+            .addCase(setRestaurantInfo.fulfilled, (state, action) => {
+                state.restaurantAddress = action.payload.restaurantAddress;
+                state.pricing = action.payload.pricing;
+            });
     }
 });
 
@@ -235,7 +291,6 @@ export const {
     setDeliveryAddress,
     applyCoupon,
     removeCoupon,
-    recalculatePricing,
     setLoading,
     setError
 } = cartSlice.actions;

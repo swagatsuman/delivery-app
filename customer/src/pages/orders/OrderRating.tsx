@@ -65,13 +65,17 @@ const OrderRating: React.FC = () => {
                 {/* Order Info */}
                 <div className="bg-surface rounded-xl p-4">
                     <div className="flex items-center space-x-3">
-                        <img
-                            src={currentOrder.restaurant.images[0]}
-                            alt={currentOrder.restaurant.name}
-                            className="w-12 h-12 rounded-lg object-cover"
-                        />
+                        {currentOrder.restaurant?.images?.[0] && (
+                            <img
+                                src={currentOrder.restaurant.images[0]}
+                                alt={currentOrder.restaurant?.name || 'Restaurant'}
+                                className="w-12 h-12 rounded-lg object-cover"
+                            />
+                        )}
                         <div>
-                            <h3 className="font-semibold text-secondary-900">{currentOrder.restaurant.name}</h3>
+                            <h3 className="font-semibold text-secondary-900">
+                                {currentOrder.restaurant?.name || (currentOrder as any).restaurantName || 'Restaurant'}
+                            </h3>
                             <p className="text-sm text-secondary-600">
                                 Order #{currentOrder.orderNumber}
                             </p>

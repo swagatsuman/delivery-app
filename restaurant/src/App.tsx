@@ -14,6 +14,8 @@ const Menu = lazy(() => import('./pages/menu/Menu'));
 const Orders = lazy(() => import('./pages/orders/Orders'));
 const OrderDetail = lazy(() => import('./pages/orders/OrderDetail'));
 const Profile = lazy(() => import('./pages/profile/Profile'));
+const Reviews = lazy(() => import('./pages/reviews/Reviews'));
+const ComingSoon = lazy(() => import('./pages/common/ComingSoon'));
 
 function App() {
     return (
@@ -54,6 +56,18 @@ function App() {
                             <Route path="/profile" element={
                                 <ProtectedRoute>
                                     <Profile />
+                                </ProtectedRoute>
+                            } />
+
+                            <Route path="/analytics" element={
+                                <ProtectedRoute>
+                                    <ComingSoon title="Analytics" description="Analytics and reporting features are coming soon." />
+                                </ProtectedRoute>
+                            } />
+
+                            <Route path="/reviews" element={
+                                <ProtectedRoute>
+                                    <Reviews />
                                 </ProtectedRoute>
                             } />
 

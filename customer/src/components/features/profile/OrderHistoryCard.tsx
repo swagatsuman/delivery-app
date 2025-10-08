@@ -54,7 +54,9 @@ export const OrderHistoryCard: React.FC<OrderHistoryCardProps> = ({
             {/* Header */}
             <div className="flex items-center justify-between mb-3">
                 <div>
-                    <h3 className="font-semibold text-secondary-900">{order.restaurant.name}</h3>
+                    <h3 className="font-semibold text-secondary-900">
+                        {order.restaurant?.name || (order as any).restaurantName || 'Restaurant'}
+                    </h3>
                     <p className="text-sm text-secondary-600">
                         Order #{order.orderNumber} • {formatDate(order.createdAt)}
                     </p>
@@ -67,11 +69,11 @@ export const OrderHistoryCard: React.FC<OrderHistoryCardProps> = ({
             {/* Items */}
             <div className="mb-3">
                 <p className="text-sm text-secondary-600">
-                    {order.items.length} item{order.items.length > 1 ? 's' : ''} • ₹{order.pricing.total}
+                    {order.items?.length || 0} item{(order.items?.length || 0) > 1 ? 's' : ''} • ₹{order.pricing?.total || 0}
                 </p>
                 <div className="text-xs text-secondary-500 mt-1">
-                    {order.items.slice(0, 2).map(item => item.menuItem.name).join(', ')}
-                    {order.items.length > 2 && ` +${order.items.length - 2} more`}
+                    {order.items?.slice(0, 2).map(item => item.menuItem?.name || 'Item').join(', ')}
+                    {(order.items?.length || 0) > 2 && ` +${(order.items?.length || 0) - 2} more`}
                 </div>
             </div>
 

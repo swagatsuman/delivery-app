@@ -5,7 +5,7 @@ import { TopHeader } from '../../components/layout/TopHeader';
 import { Button } from '../../components/ui/Button';
 import { useAppSelector, useAppDispatch } from '../../hooks/useAppDispatch';
 import { createOrder } from '../../store/slices/orderSlice';
-import { clearCart } from '../../store/slices/cartSlice';
+import { clearCart, recalculateCartPricing, setRestaurantInfo } from '../../store/slices/cartSlice';
 import { fetchRestaurantDetails } from '../../store/slices/restaurantSlice';
 import type { PaymentMethod, Restaurant } from '../../types';
 
@@ -38,12 +38,16 @@ const Checkout: React.FC = () => {
         if (restaurantId) {
             if (selectedRestaurant && selectedRestaurant.id === restaurantId) {
                 setRestaurant(selectedRestaurant);
+                // Set restaurant info in cart for pricing calculation
+                dispatch(setRestaurantInfo(selectedRestaurant));
             } else {
                 console.log('Fetching restaurant details for checkout:', restaurantId);
                 dispatch(fetchRestaurantDetails(restaurantId))
                     .unwrap()
                     .then((restaurantData) => {
                         setRestaurant(restaurantData);
+                        // Set restaurant info in cart for pricing calculation
+                        dispatch(setRestaurantInfo(restaurantData));
                     })
                     .catch((error) => {
                         console.error('Failed to fetch restaurant details:', error);
@@ -53,6 +57,13 @@ const Checkout: React.FC = () => {
         }
         }
     }, [deliveryAddress, items, navigate, restaurantId, selectedRestaurant, dispatch]);
+
+    // Recalculate pricing when checkout page loads
+    useEffect(() => {
+        if (items.length > 0 && deliveryAddress) {
+            dispatch(recalculateCartPricing());
+        }
+    }, [deliveryAddress, items.length, dispatch]);
 
     const handlePlaceOrder = async () => {
         if (!restaurant || !deliveryAddress || !user) {

@@ -16,12 +16,22 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                                                         onStatusUpdate,
                                                         onViewDetails
                                                     }) => {
+    // Calculate subtotal from items
+    const calculateSubtotal = () => {
+        if (!order.items || order.items.length === 0) return 0;
+        return order.items.reduce((sum, item) => {
+            const price = item.menuItem?.price || item.price || 0;
+            return sum + (price * item.quantity);
+        }, 0);
+    };
+
+    const itemsSubtotal = calculateSubtotal();
+
     const getNextStatus = (currentStatus: string) => {
         const statusFlow = {
             'placed': 'confirmed',
             'confirmed': 'preparing',
-            'preparing': 'ready',
-            'ready': 'picked_up'
+            'preparing': 'ready'
         };
         return statusFlow[currentStatus as keyof typeof statusFlow];
     };
@@ -30,8 +40,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
         const actions = {
             'placed': 'Accept Order',
             'confirmed': 'Start Preparing',
-            'preparing': 'Mark Ready',
-            'ready': 'Order Picked Up'
+            'preparing': 'Mark Ready'
         };
         return actions[status as keyof typeof actions];
     };
@@ -102,31 +111,32 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             </div>
 
             {/* Customer Address */}
-            <div className="flex items-start space-x-2 mb-4 p-3 bg-secondary-50 rounded-lg">
-                <MapPin className="h-4 w-4 text-secondary-400 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-secondary-700">
-                    <p className="font-medium">{order.addresses.delivery.label}</p>
-                    <p>{order.addresses.delivery.street}, {order.addresses.delivery.city}</p>
-                    <p>{order.addresses.delivery.state} - {order.addresses.delivery.pincode}</p>
+            {order.deliveryAddress && (
+                <div className="flex items-start space-x-2 mb-4 p-3 bg-secondary-50 rounded-lg">
+                    <MapPin className="h-4 w-4 text-secondary-400 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-secondary-700">
+                        <p className="font-medium">{order.deliveryAddress.label || 'Delivery Address'}</p>
+                        <p>{order.deliveryAddress.address}</p>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Order Items */}
             <div className="space-y-2 mb-4">
                 <h4 className="text-sm font-medium text-secondary-900">Order Items:</h4>
                 <div className="space-y-1">
-                    {order.items.map((item, index) => (
+                    {order.items?.map((item, index) => (
                         <div key={index} className="flex justify-between items-center text-sm">
                             <span className="text-secondary-700">
-                                {item.quantity}x {item.name}
-                                {item.customizations.length > 0 && (
+                                {item.quantity}x {item.menuItem?.name || item.name || 'Item'}
+                                {item.customizations?.length > 0 && (
                                     <span className="text-secondary-500 ml-1">
                                         ({item.customizations.join(', ')})
                                     </span>
                                 )}
                             </span>
                             <span className="font-medium text-secondary-900">
-                                {formatCurrency(item.price * item.quantity)}
+                                {formatCurrency((item.menuItem?.price || item.price || 0) * item.quantity)}
                             </span>
                         </div>
                     ))}
@@ -143,38 +153,50 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             )}
 
             {/* Payment Info */}
-            <div className="flex items-center justify-between text-sm text-secondary-600 mb-4">
-                <span>Payment: {order.payment.method.toUpperCase()}</span>
-                <Badge variant={order.payment.status === 'completed' ? 'success' : 'warning'} size="sm">
-                    {order.payment.status}
-                </Badge>
-            </div>
+            {order.payment && (
+                <div className="flex items-center justify-between text-sm text-secondary-600 mb-4">
+                    <span>Payment: {order.payment.method?.toUpperCase() || 'N/A'}</span>
+                    <Badge variant={order.payment.status === 'completed' ? 'success' : 'warning'} size="sm">
+                        {order.payment.status}
+                    </Badge>
+                </div>
+            )}
 
             {/* Pricing Breakdown */}
             <div className="border-t border-secondary-200 pt-3 mb-4">
                 <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                         <span className="text-secondary-600">Subtotal:</span>
-                        <span className="text-secondary-900">{formatCurrency(order.pricing.subtotal)}</span>
+                        <span className="text-secondary-900">{formatCurrency(itemsSubtotal)}</span>
                     </div>
-                    <div className="flex justify-between">
-                        <span className="text-secondary-600">Tax:</span>
-                        <span className="text-secondary-900">{formatCurrency(order.pricing.tax)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-secondary-600">Delivery Fee:</span>
-                        <span className="text-secondary-900">{formatCurrency(order.pricing.deliveryFee)}</span>
-                    </div>
-                    {order.pricing.discount > 0 && (
-                        <div className="flex justify-between text-success-600">
-                            <span>Discount:</span>
-                            <span>-{formatCurrency(order.pricing.discount)}</span>
-                        </div>
+                    {order.pricing && (
+                        <>
+                            <div className="flex justify-between">
+                                <span className="text-secondary-600">Tax:</span>
+                                <span className="text-secondary-900">{formatCurrency(order.pricing.taxes || order.pricing.tax || 0)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-secondary-600">Delivery Fee:</span>
+                                <span className="text-secondary-900">{formatCurrency(order.pricing.deliveryFee || order.pricing.delivery || 0)}</span>
+                            </div>
+                            {(order.pricing.discount || 0) > 0 && (
+                                <div className="flex justify-between text-success-600">
+                                    <span>Discount:</span>
+                                    <span>-{formatCurrency(order.pricing.discount)}</span>
+                                </div>
+                            )}
+                            {(order.pricing.platformFee || 0) > 0 && (
+                                <div className="flex justify-between">
+                                    <span className="text-secondary-600">Platform Fee:</span>
+                                    <span className="text-secondary-900">{formatCurrency(order.pricing.platformFee)}</span>
+                                </div>
+                            )}
+                            <div className="flex justify-between font-semibold text-secondary-900 border-t border-secondary-200 pt-1">
+                                <span>Total:</span>
+                                <span>{formatCurrency(order.pricing.total || 0)}</span>
+                            </div>
+                        </>
                     )}
-                    <div className="flex justify-between font-semibold text-secondary-900 border-t border-secondary-200 pt-1">
-                        <span>Total:</span>
-                        <span>{formatCurrency(order.pricing.total)}</span>
-                    </div>
                 </div>
             </div>
 
@@ -229,6 +251,26 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                     hour: '2-digit',
                     minute: '2-digit'
                 })}
+                </div>
+            )}
+
+            {/* Waiting for Delivery Agent */}
+            {order.status === 'ready' && !order.deliveryAgentId && (
+                <div className="mt-3 p-3 bg-warning-50 border border-warning-200 rounded-lg text-sm text-warning-800">
+                    <div className="flex items-center">
+                        <Clock className="h-4 w-4 mr-2 animate-pulse" />
+                        <span className="font-medium">Waiting for delivery agent to pick up</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Delivery Agent Assigned */}
+            {order.status === 'ready' && order.deliveryAgentId && (
+                <div className="mt-3 p-3 bg-success-50 border border-success-200 rounded-lg text-sm text-success-800">
+                    <div className="flex items-center">
+                        <User className="h-4 w-4 mr-2" />
+                        <span className="font-medium">Delivery agent assigned - waiting for pickup</span>
+                    </div>
                 </div>
             )}
         </div>

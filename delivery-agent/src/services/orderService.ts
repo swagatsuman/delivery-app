@@ -50,7 +50,8 @@ export const orderService = {
                             customizations: Array.isArray(item.customizations)
                                 ? item.customizations.map((c: any) => typeof c === 'string' ? c : c.name || c)
                                 : [],
-                            specialInstructions: item.specialInstructions || ''
+                            specialInstructions: item.specialInstructions || '',
+                            images: item.menuItem?.images || item.images || []
                         };
                     }),
                     pricing: {
@@ -61,6 +62,7 @@ export const orderService = {
                         total: parseFloat(data.pricing?.total || 0) || 0
                     },
                     status: data.status,
+                    deliveryStatus: data.deliveryStatus || null,
                     payment: data.payment || { method: 'cash', status: 'pending', amount: data.pricing?.total || 0 },
                     distance: data.distance || 0,
                     deliveryFee: data.pricing?.deliveryFee || 0,
@@ -130,13 +132,33 @@ export const orderService = {
 
     async getAssignedOrders(agentId: string): Promise<Order[]> {
         try {
+            console.log('=== getAssignedOrders called ===');
+            console.log('Fetching assigned orders for agent:', agentId);
+            // Get all orders assigned to this agent (not delivered or cancelled)
             const q = query(
                 collection(db, 'orders'),
-                where('deliveryAgentId', '==', agentId),
-                where('status', 'in', ['assigned', 'picked_up', 'on_the_way'])
+                where('deliveryAgentId', '==', agentId)
             );
+            console.log('Query for all orders with deliveryAgentId:', agentId);
 
             const snapshot = await getDocs(q);
+            console.log('Firebase query returned:', snapshot.size, 'documents');
+
+            // Debug: Also check ALL orders for this agent (without status filter)
+            const debugQuery = query(
+                collection(db, 'orders'),
+                where('deliveryAgentId', '==', agentId)
+            );
+            const debugSnapshot = await getDocs(debugQuery);
+            console.log('DEBUG: Total orders with deliveryAgentId =', agentId, ':', debugSnapshot.size);
+            if (debugSnapshot.size > 0) {
+                console.log('DEBUG: Order statuses:', debugSnapshot.docs.map(doc => ({
+                    id: doc.id.slice(0, 8),
+                    status: doc.data().status,
+                    deliveryAgentId: doc.data().deliveryAgentId
+                })));
+            }
+
             const orders = snapshot.docs.map(doc => {
                 const data = doc.data();
                 return {
@@ -157,7 +179,8 @@ export const orderService = {
                             customizations: Array.isArray(item.customizations)
                                 ? item.customizations.map((c: any) => typeof c === 'string' ? c : c.name || c)
                                 : [],
-                            specialInstructions: item.specialInstructions || ''
+                            specialInstructions: item.specialInstructions || '',
+                            images: item.menuItem?.images || item.images || []
                         };
                     }),
                     pricing: {
@@ -168,6 +191,7 @@ export const orderService = {
                         total: parseFloat(data.pricing?.total || 0) || 0
                     },
                     status: data.status,
+                    deliveryStatus: data.deliveryStatus || null,
                     payment: data.payment || { method: 'cash', status: 'pending', amount: data.pricing?.total || 0 },
                     distance: data.distance || 0,
                     deliveryFee: data.pricing?.deliveryFee || 0,
@@ -202,14 +226,24 @@ export const orderService = {
                 } as Order;
             });
 
+            console.log('Found assigned orders:', orders.length);
+            console.log('Assigned order statuses:', orders.map(o => ({ id: o.id.slice(0, 8), status: o.status, deliveryStatus: o.deliveryStatus })));
+
+            // Filter out delivered and cancelled orders
+            const activeOrders = orders.filter(o =>
+                o.status !== 'delivered' && o.status !== 'cancelled'
+            );
+
+            console.log('Active assigned orders after filtering:', activeOrders.length);
+
             // Sort by createdAt on client side
-            orders.sort((a, b) => {
+            activeOrders.sort((a, b) => {
                 const dateA = a.createdAt instanceof Date ? a.createdAt : new Date();
                 const dateB = b.createdAt instanceof Date ? b.createdAt : new Date();
                 return dateB.getTime() - dateA.getTime(); // Descending order (newest first)
             });
 
-            return orders;
+            return activeOrders;
         } catch (error: any) {
             console.error('Error fetching assigned orders:', error);
             return [];
@@ -218,15 +252,20 @@ export const orderService = {
 
     async getCompletedOrders(agentId: string, filters?: OrderFilters): Promise<Order[]> {
         try {
+            console.log('=== getCompletedOrders called ===');
+            console.log('Fetching completed orders for agent:', agentId);
+
+            // Query without orderBy to avoid index requirement - we'll sort in memory
             let q = query(
                 collection(db, 'orders'),
                 where('deliveryAgentId', '==', agentId),
-                where('status', 'in', ['delivered', 'cancelled']),
-                orderBy('updatedAt', 'desc'),
-                limit(50)
+                where('status', 'in', ['delivered', 'cancelled'])
             );
+            console.log('Query for statuses: delivered, cancelled');
 
             const snapshot = await getDocs(q);
+            console.log('Firebase query returned:', snapshot.size, 'completed orders');
+
             let orders = snapshot.docs.map(doc => {
                 const data = doc.data();
                 return {
@@ -247,7 +286,8 @@ export const orderService = {
                             customizations: Array.isArray(item.customizations)
                                 ? item.customizations.map((c: any) => typeof c === 'string' ? c : c.name || c)
                                 : [],
-                            specialInstructions: item.specialInstructions || ''
+                            specialInstructions: item.specialInstructions || '',
+                            images: item.menuItem?.images || item.images || []
                         };
                     }),
                     pricing: {
@@ -258,6 +298,7 @@ export const orderService = {
                         total: parseFloat(data.pricing?.total || 0) || 0
                     },
                     status: data.status,
+                    deliveryStatus: data.deliveryStatus || null,
                     payment: data.payment || { method: 'cash', status: 'pending', amount: data.pricing?.total || 0 },
                     distance: data.distance || 0,
                     deliveryFee: data.pricing?.deliveryFee || 0,
@@ -312,7 +353,18 @@ export const orderService = {
                 orders = orders.filter(order => order.updatedAt >= startDate);
             }
 
-            return orders;
+            // Sort by updatedAt descending (newest first)
+            orders.sort((a, b) => {
+                const dateA = a.updatedAt instanceof Date ? a.updatedAt : new Date();
+                const dateB = b.updatedAt instanceof Date ? b.updatedAt : new Date();
+                return dateB.getTime() - dateA.getTime();
+            });
+
+            console.log('Found completed orders:', orders.length);
+            console.log('Completed order statuses:', orders.map(o => ({ id: o.id.slice(0, 8), status: o.status })));
+
+            // Limit to 50 most recent
+            return orders.slice(0, 50);
         } catch (error: any) {
             console.error('Error fetching completed orders:', error);
             return [];
@@ -335,22 +387,24 @@ export const orderService = {
                 throw new Error('Order is already assigned to another agent');
             }
 
-            if (!['placed', 'preparing', 'ready'].includes(orderData.status)) {
+            if (!['placed', 'confirmed', 'preparing', 'ready'].includes(orderData.status)) {
                 throw new Error('Order is no longer available');
             }
 
             const newTimeline = [
                 ...(orderData.timeline || []),
                 {
-                    status: 'assigned' as const,
+                    status: 'agent_assigned' as const,
                     timestamp: Timestamp.now(),
                     note: 'Delivery agent accepted the order'
                 }
             ];
 
+            // Set deliveryStatus separately - don't change order status
             await updateDoc(orderRef, {
                 deliveryAgentId: agentId,
-                status: 'assigned',
+                deliveryStatus: 'assigned', // Separate delivery agent status
+                // Keep order status as is (restaurant status)
                 timeline: newTimeline,
                 updatedAt: Timestamp.now()
             });
@@ -370,11 +424,59 @@ export const orderService = {
 
             const orderData = orderDoc.data() as Order;
 
+            // Delivery agent can only update orders assigned to them
+            if (!orderData.deliveryAgentId) {
+                throw new Error('This order is not assigned to a delivery agent yet');
+            }
+
+            // Get current location from deliveryAgents collection if not provided
+            if (!location) {
+                try {
+                    const agentDoc = await getDoc(doc(db, 'deliveryAgents', orderData.deliveryAgentId));
+                    if (agentDoc.exists()) {
+                        const agentData = agentDoc.data();
+                        if (agentData.currentLocation && agentData.currentLocation.lat !== 0) {
+                            location = agentData.currentLocation;
+                        }
+                    }
+                } catch (error) {
+                    console.debug('Could not fetch agent location:', error);
+                }
+            }
+
+            // Delivery agent can only set these statuses
+            const allowedStatuses = ['picked_up', 'on_the_way', 'out_for_delivery', 'delivered', 'cancelled'];
+            if (!allowedStatuses.includes(status)) {
+                throw new Error(`Delivery agent can only update status to: ${allowedStatuses.join(', ')}`);
+            }
+
+            // Validate status flow for delivery agent
+            const currentDeliveryStatus = orderData.deliveryStatus || 'assigned';
+            const validTransitions: { [key: string]: string[] } = {
+                'assigned': ['picked_up', 'cancelled'],
+                'picked_up': ['on_the_way', 'out_for_delivery', 'cancelled'],
+                'on_the_way': ['delivered', 'out_for_delivery', 'cancelled'],
+                'out_for_delivery': ['delivered', 'cancelled']
+            };
+
+            if (validTransitions[currentDeliveryStatus] && !validTransitions[currentDeliveryStatus].includes(status)) {
+                throw new Error(`Cannot change delivery status from ${currentDeliveryStatus} to ${status}`);
+            }
+
+            // Delivery agent can only pick up when food is ready
+            // Check if trying to transition from 'assigned' to 'picked_up'
+            if (currentDeliveryStatus === 'assigned' && status === 'picked_up') {
+                // Food must be ready for pickup
+                if (orderData.status !== 'ready' && orderData.status !== 'picked_up') {
+                    throw new Error('Cannot pick up order. Food is not ready yet. Current status: ' + orderData.status);
+                }
+            }
+
             // Prepare timeline entry
             const timelineEntry: any = {
                 status: status as any,
                 timestamp: Timestamp.now(),
-                note: note || `Status updated to ${status}`
+                note: note || `Delivery status updated to ${status}`
             };
 
             // Only add location if it's provided
@@ -388,13 +490,22 @@ export const orderService = {
             ];
 
             const updateData: any = {
-                status,
+                deliveryStatus: status, // Update delivery status separately
                 timeline: newTimeline,
                 updatedAt: Timestamp.now()
             };
 
-            if (status === 'delivered') {
+            // Also update main order status for key milestones
+            if (status === 'picked_up') {
+                // When agent picks up, update main order status too
+                updateData.status = 'picked_up';
+            } else if (status === 'on_the_way' || status === 'out_for_delivery') {
+                updateData.status = 'on_the_way';
+            } else if (status === 'delivered') {
+                updateData.status = 'delivered';
                 updateData.actualDeliveryTime = Timestamp.now();
+            } else if (status === 'cancelled') {
+                updateData.status = 'cancelled';
             }
 
             await updateDoc(orderRef, updateData);
@@ -458,6 +569,7 @@ export const orderService = {
                     total: parseFloat(data.pricing?.total || 0) || 0
                 },
                 status: data.status,
+                deliveryStatus: data.deliveryStatus || null,
                 payment: data.payment || { method: 'cash', status: 'pending', amount: data.pricing?.total || 0 },
                 distance: distance,
                 deliveryFee: data.pricing?.deliveryFee || 0,
@@ -557,7 +669,8 @@ export const orderService = {
                             customizations: Array.isArray(item.customizations)
                                 ? item.customizations.map((c: any) => typeof c === 'string' ? c : c.name || c)
                                 : [],
-                            specialInstructions: item.specialInstructions || ''
+                            specialInstructions: item.specialInstructions || '',
+                            images: item.menuItem?.images || item.images || []
                         };
                     }),
                     pricing: {
@@ -568,6 +681,7 @@ export const orderService = {
                         total: parseFloat(data.pricing?.total || 0) || 0
                     },
                     status: data.status,
+                    deliveryStatus: data.deliveryStatus || null,
                     payment: data.payment || { method: 'cash', status: 'pending', amount: data.pricing?.total || 0 },
                     distance: data.distance || 0,
                     deliveryFee: data.pricing?.deliveryFee || 0,

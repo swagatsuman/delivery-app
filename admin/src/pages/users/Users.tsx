@@ -303,7 +303,7 @@ const Users: React.FC = () => {
 
                 {/* Users Table */}
                 <Card>
-                    <div className="flex items-center justify-between mb-6 p-6 pb-0">
+                    <div className="flex items-center justify-between mb-6 pb-0">
                         <div>
                             <h2 className="text-lg font-semibold text-secondary-900">
                                 Users ({pagination.total})
@@ -314,7 +314,7 @@ const Users: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="px-6 pb-6">
+                    <div className="pb-6">
                         <Table
                             columns={columns}
                             data={users}

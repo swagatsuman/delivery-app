@@ -14,7 +14,9 @@ import {
     Car,
     ShoppingCart,
     Cake,
-    ChevronDown
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -44,6 +46,7 @@ const sidebarItems: SidebarItem[] = [
 
 export const Sidebar: React.FC = () => {
     const [expandedItems, setExpandedItems] = React.useState<string[]>([]);
+    const [isCollapsed, setIsCollapsed] = React.useState(false);
     const location = useLocation();
 
     const toggleExpanded = (itemName: string) => {
@@ -52,6 +55,13 @@ export const Sidebar: React.FC = () => {
                 ? prev.filter(name => name !== itemName)
                 : [...prev, itemName]
         );
+    };
+
+    const toggleSidebar = () => {
+        setIsCollapsed(!isCollapsed);
+        if (!isCollapsed) {
+            setExpandedItems([]);
+        }
     };
 
     // Function to check if a submenu item is active
@@ -89,38 +99,53 @@ export const Sidebar: React.FC = () => {
     };
 
     return (
-        <div className="w-64 bg-surface shadow-swiggy border-r border-secondary-200 h-auto sticky top-0">
+        <div className={`${isCollapsed ? 'w-20' : 'w-64'} bg-surface shadow-swiggy border-r border-secondary-200 h-screen sticky top-0 flex flex-col transition-all duration-300`}>
             {/* Logo */}
-            <div className="p-6 border-b border-secondary-200">
-                <div className="flex items-center space-x-3">
-                    <div className="h-8 w-8 bg-primary-500 rounded-lg flex items-center justify-center">
-                        <ChefHat className="h-5 w-5 text-white" />
+            <div className="h-[73px] border-b border-secondary-200 flex items-center justify-between px-6">
+                {!isCollapsed && (
+                    <div className="flex items-center space-x-3">
+                        <div className="h-8 w-8 bg-primary-500 rounded-lg flex items-center justify-center">
+                            <ChefHat className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-bold text-secondary-900">FoodEats</h2>
+                            <p className="text-xs text-secondary-500">Admin Panel</p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-lg font-bold text-secondary-900">FoodEats</h2>
-                        <p className="text-xs text-secondary-500">Admin Panel</p>
-                    </div>
-                </div>
+                )}
+                <button
+                    onClick={toggleSidebar}
+                    className="p-2 hover:bg-secondary-100 rounded-lg transition-colors"
+                >
+                    {isCollapsed ? (
+                        <ChevronRight className="h-5 w-5 text-secondary-600" />
+                    ) : (
+                        <ChevronLeft className="h-5 w-5 text-secondary-600" />
+                    )}
+                </button>
             </div>
 
             {/* Navigation */}
-            <nav className="p-4">
+            <nav className="p-4 flex-1 overflow-y-auto scrollbar-hide">
                 <ul className="space-y-2">
                     {sidebarItems.map((item) => (
                         <li key={item.name}>
                             {item.subItems ? (
                                 <div>
                                     <button
-                                        onClick={() => toggleExpanded(item.name)}
+                                        onClick={() => !isCollapsed && toggleExpanded(item.name)}
                                         className="sidebar-item w-full justify-between"
+                                        title={isCollapsed ? item.name : ''}
                                     >
                                         <div className="flex items-center">
-                                            <item.icon className="mr-3 h-5 w-5" />
-                                            <span className="font-medium">{item.name}</span>
+                                            <item.icon className={`h-5 w-5 ${isCollapsed ? 'mr-0' : 'mr-3'}`} />
+                                            {!isCollapsed && <span className="font-medium">{item.name}</span>}
                                         </div>
-                                        <ChevronDown className={`h-4 w-4 transition-transform ${expandedItems.includes(item.name) ? 'rotate-180' : ''}`} />
+                                        {!isCollapsed && (
+                                            <ChevronDown className={`h-4 w-4 transition-transform ${expandedItems.includes(item.name) ? 'rotate-180' : ''}`} />
+                                        )}
                                     </button>
-                                    {expandedItems.includes(item.name) && (
+                                    {!isCollapsed && expandedItems.includes(item.name) && (
                                         <ul className="ml-6 mt-2 space-y-1">
                                             {item.subItems.map((subItem) => (
                                                 <li key={subItem.name}>
@@ -144,9 +169,10 @@ export const Sidebar: React.FC = () => {
                                     className={({ isActive }) =>
                                         `sidebar-item ${isActive ? 'sidebar-item-active' : ''}`
                                     }
+                                    title={isCollapsed ? item.name : ''}
                                 >
-                                    <item.icon className="mr-3 h-5 w-5" />
-                                    <span className="font-medium">{item.name}</span>
+                                    <item.icon className={`h-5 w-5 ${isCollapsed ? 'mr-0' : 'mr-3'}`} />
+                                    {!isCollapsed && <span className="font-medium">{item.name}</span>}
                                 </NavLink>
                             )}
                         </li>

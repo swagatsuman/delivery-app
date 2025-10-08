@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { initializeFirestore, memoryLocalCache, connectFirestoreEmulator } from 'firebase/firestore';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -42,7 +42,12 @@ let storage;
 if (validateConfig()) {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
-    db = getFirestore(app);
+
+    // Use ONLY memory cache (no IndexedDB persistence) to avoid state conflicts
+    db = initializeFirestore(app, {
+        localCache: memoryLocalCache()
+    });
+
     storage = getStorage(app);
 
     // Connect to emulators in development

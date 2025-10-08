@@ -74,7 +74,9 @@ export const authService = {
                 phone: userData.phone,
                 gstin: userData.gstin,
                 description: userData.description || '',
+                profileImage: '',
                 images: [],
+                cuisineTypes: [],
                 address: userData.address,
                 serviceTypes: userData.serviceTypes || [],
                 operatingHours: {
@@ -211,20 +213,41 @@ export const authService = {
                 updatedAt: new Date()
             };
 
-            // Update establishment document
-            const establishmentUpdateData = {
+            // Build establishment update data, filtering out undefined values
+            const establishmentUpdateData: any = {
                 businessName: profileData.businessName,
                 ownerName: profileData.ownerName,
                 email: profileData.email,
                 phone: profileData.phone,
                 gstin: profileData.gstin,
-                description: profileData.description,
+                description: profileData.description || '',
                 address: profileData.address,
-                serviceTypes: profileData.serviceTypes,
                 operatingHours: profileData.operatingHours,
-                estimatedDeliveryTime: profileData.estimatedDeliveryTime,
                 updatedAt: new Date()
             };
+
+            // Add optional fields only if they are defined
+            if (profileData.cuisineTypes !== undefined) {
+                establishmentUpdateData.cuisineTypes = profileData.cuisineTypes;
+            }
+            if (profileData.profileImage !== undefined) {
+                establishmentUpdateData.profileImage = profileData.profileImage;
+            }
+            if (profileData.deliveryRadius !== undefined) {
+                establishmentUpdateData.deliveryRadius = profileData.deliveryRadius;
+            }
+            if (profileData.minimumOrderValue !== undefined) {
+                establishmentUpdateData.minimumOrderValue = profileData.minimumOrderValue;
+            }
+            if (profileData.deliveryFee !== undefined) {
+                establishmentUpdateData.deliveryFee = profileData.deliveryFee;
+            }
+            if (profileData.estimatedDeliveryTime !== undefined) {
+                establishmentUpdateData.estimatedDeliveryTime = profileData.estimatedDeliveryTime;
+            }
+            if (profileData.serviceTypes !== undefined) {
+                establishmentUpdateData.serviceTypes = profileData.serviceTypes;
+            }
 
             // Update both collections
             await Promise.all([

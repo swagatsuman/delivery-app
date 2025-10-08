@@ -68,14 +68,22 @@ export const establishmentService = {
 
             console.log('Establishment users found:', establishmentUsers.length);
 
-            // Fetch establishment details for each user
+            // Fetch establishment details and calculate stats for each user
             const establishmentsWithDetails = await Promise.all(
                 establishmentUsers.map(async (user) => {
                     try {
                         const establishmentDoc = await getDoc(doc(db, 'establishments', user.uid));
                         if (establishmentDoc.exists()) {
-                            const establishmentDetails = establishmentDoc.data() as Establishment;
+                            let establishmentDetails = establishmentDoc.data() as Establishment;
                             console.log('Establishment details found for:', user.uid, establishmentDetails.businessName);
+
+                            // Calculate stats from orders and ratings
+                            const stats = await this.calculateEstablishmentStats(user.uid);
+                            establishmentDetails = {
+                                ...establishmentDetails,
+                                ...stats
+                            };
+
                             return { ...user, establishmentDetails };
                         } else {
                             console.warn('No establishment details found for user:', user.uid);
@@ -173,6 +181,17 @@ export const establishmentService = {
                 establishmentDetails = establishmentDoc.data() as Establishment;
             }
 
+            // Calculate stats from orders and ratings
+            const stats = await this.calculateEstablishmentStats(id);
+
+            // Merge calculated stats with establishment details
+            if (establishmentDetails) {
+                establishmentDetails = {
+                    ...establishmentDetails,
+                    ...stats
+                };
+            }
+
             return {
                 ...userData,
                 uid: userDoc.id,
@@ -265,26 +284,57 @@ export const establishmentService = {
         }
     },
 
-    async getEstablishmentStats(uid: string) {
+    async calculateEstablishmentStats(uid: string) {
         try {
-            // Fetch establishment details
-            const establishmentDoc = await getDoc(doc(db, 'establishments', uid));
-            if (establishmentDoc.exists()) {
-                const establishment = establishmentDoc.data() as Establishment;
-                return {
-                    totalOrders: establishment.totalOrders || 0,
-                    revenue: establishment.revenue || 0,
-                    rating: establishment.rating || 0,
-                    totalRatings: establishment.totalRatings || 0
-                };
-            }
+            // Fetch all orders for this establishment
+            const ordersQuery = query(
+                collection(db, 'orders'),
+                where('restaurantId', '==', uid)
+            );
+            const ordersSnapshot = await getDocs(ordersQuery);
+            const orders = ordersSnapshot.docs.map(doc => doc.data());
 
+            // Calculate total orders and revenue
+            const totalOrders = orders.length;
+            const revenue = orders.reduce((sum, order) => {
+                // Sum up the itemTotal (excluding delivery fee and taxes)
+                return sum + (order.pricing?.itemTotal || 0);
+            }, 0);
+
+            // Fetch ratings for this establishment
+            const ratingsQuery = query(
+                collection(db, 'ratings'),
+                where('restaurantId', '==', uid)
+            );
+            const ratingsSnapshot = await getDocs(ratingsQuery);
+            const ratings = ratingsSnapshot.docs.map(doc => doc.data());
+
+            const totalRatings = ratings.length;
+            const averageRating = totalRatings > 0
+                ? ratings.reduce((sum, rating) => sum + (rating.foodRating || 0), 0) / totalRatings
+                : 0;
+
+            return {
+                totalOrders,
+                revenue: Math.round(revenue),
+                rating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
+                totalRatings
+            };
+        } catch (error: any) {
+            console.error('Error calculating establishment stats:', error);
             return {
                 totalOrders: 0,
                 revenue: 0,
                 rating: 0,
                 totalRatings: 0
             };
+        }
+    },
+
+    async getEstablishmentStats(uid: string) {
+        try {
+            // Calculate stats from orders and ratings
+            return await this.calculateEstablishmentStats(uid);
         } catch (error: any) {
             throw new Error(error.message || 'Failed to fetch establishment stats');
         }

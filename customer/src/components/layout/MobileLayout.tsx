@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Search, ShoppingCart, User } from 'lucide-react';
-import { useAppSelector } from '../../hooks/useAppDispatch';
+import { Home, Search, ShoppingCart, User, Package, Clock, ChevronRight } from 'lucide-react';
+import { useAppSelector, useAppDispatch } from '../../hooks/useAppDispatch';
+import { fetchOrders } from '../../store/slices/orderSlice';
+import { ORDER_STATUS_LABELS } from '../../utils/constants';
 
 interface MobileLayoutProps {
     children: React.ReactNode;
@@ -10,9 +12,40 @@ interface MobileLayoutProps {
 export const MobileLayout: React.FC<MobileLayoutProps> = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
+    const dispatch = useAppDispatch();
     const { items } = useAppSelector(state => state.cart);
+    const { orders } = useAppSelector(state => state.order);
+    const { user } = useAppSelector(state => state.auth);
 
     const cartItemCount = items.reduce((total, item) => total + item.quantity, 0);
+
+    // Fetch orders when component mounts or user changes
+    useEffect(() => {
+        if (user?.uid) {
+            // Initial fetch
+            dispatch(fetchOrders(user.uid));
+
+            // Poll for updates every 10 seconds to keep active order status updated
+            const pollInterval = setInterval(() => {
+                // dispatch(fetchOrders(user.uid));
+            }, 10000);
+
+            // Cleanup interval on unmount
+            return () => clearInterval(pollInterval);
+        }
+    }, [user?.uid, dispatch]);
+
+    // Find active order (not delivered or cancelled)
+    const activeOrder = orders.find(order =>
+        order.status !== 'delivered' && order.status !== 'cancelled'
+    );
+
+    const formatTime = (date: Date) => {
+        return new Intl.DateTimeFormat('en-IN', {
+            hour: '2-digit',
+            minute: '2-digit'
+        }).format(new Date(date));
+    };
 
     const bottomNavItems = [
         {
@@ -49,9 +82,57 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({ children }) => {
     return (
         <div className="flex flex-col h-screen bg-background">
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto pb-16">
+            <main className={`flex-1 overflow-y-auto ${activeOrder ? 'pb-32' : 'pb-16'}`}>
                 {children}
             </main>
+
+            {/* Active Order Footer */}
+            {activeOrder && (
+                <div
+                    onClick={() => {
+                        navigate(`/order-tracking/${activeOrder.id}`);
+                    }}
+                    className="fixed bottom-16 left-0 right-0 bg-white border-t-2 border-primary-200 shadow-2xl z-[45] cursor-pointer hover:bg-gray-50 transition-all duration-200"
+                    style={{
+                        boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06)'
+                    }}
+                >
+                    <div className="px-4 py-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3 flex-1">
+                                <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+                                    <Package className="h-5 w-5 text-primary-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center space-x-2">
+                                        <p className="font-semibold text-secondary-900">
+                                            {/* @ts-ignore */}
+                                            {activeOrder.deliveryAgentId
+                                                ? 'Delivery Partner Assigned'
+                                                : ORDER_STATUS_LABELS[activeOrder.status] || activeOrder.status}
+                                        </p>
+                                        <span className="w-2 h-2 bg-success-500 rounded-full animate-pulse"></span>
+                                    </div>
+                                    <div className="flex items-center space-x-1 text-sm text-secondary-600">
+                                        <Clock className="h-3 w-3" />
+                                        <span>
+                                            {/* @ts-ignore */}
+                                            {activeOrder.deliveryAgentId
+                                                ? 'Tap to track delivery'
+                                                : activeOrder.status === 'delivered'
+                                                    ? 'Delivered'
+                                                    : activeOrder.estimatedDeliveryTime
+                                                        ? `Expected by ${formatTime(activeOrder.estimatedDeliveryTime)}`
+                                                        : 'Processing...'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <ChevronRight className="h-5 w-5 text-secondary-400 flex-shrink-0" />
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Bottom Navigation */}
             <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-secondary-200 z-50">

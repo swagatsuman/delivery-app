@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Minus } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { useAppDispatch, useAppSelector } from '../../../hooks/useAppDispatch';
-import { addToCart, updateCartItem, removeFromCart } from '../../../store/slices/cartSlice';
+import { addToCart, updateCartItem, removeFromCart, recalculateCartPricing } from '../../../store/slices/cartSlice';
 import type { MenuItem, SelectedCustomization } from '../../../types';
 
 interface AddToCartButtonProps {
@@ -51,6 +51,8 @@ export const AddToCartButton: React.FC<AddToCartButtonProps> = ({
                 specialInstructions,
                 restaurantId
             }));
+            // Recalculate pricing after adding to cart
+            dispatch(recalculateCartPricing());
         } finally {
             setIsLoading(false);
         }
@@ -67,6 +69,8 @@ export const AddToCartButton: React.FC<AddToCartButtonProps> = ({
                 quantity: newQuantity
             }));
         }
+        // Recalculate pricing after quantity update
+        dispatch(recalculateCartPricing());
     };
 
     if (currentQuantity === 0) {
